@@ -1,0 +1,38 @@
+FROM ghcr.io/astral-sh/uv:0.11.25 AS uv
+
+FROM apache/dolphinscheduler-worker:3.4.2
+
+USER root
+
+COPY --from=uv /uv /uvx /usr/local/bin/
+
+ENV UV_PYTHON_INSTALL_DIR=/opt/arena-runtime/python \
+    UV_PYTHON_PREFERENCE=only-managed \
+    UV_LINK_MODE=copy \
+    UV_NO_CACHE=1 \
+    VIRTUAL_ENV=/opt/arena-runtime/.venv
+
+RUN mkdir -p /opt/arena-runtime/wheels \
+    && uv python install 3.12 \
+    && uv venv --python 3.12 "${VIRTUAL_ENV}"
+
+COPY runtime/dist/arena_runtime-*.whl /opt/arena-runtime/wheels/
+
+RUN uv pip install \
+        --python "${VIRTUAL_ENV}/bin/python" \
+        /opt/arena-runtime/wheels/arena_runtime-*.whl \
+    && "${VIRTUAL_ENV}/bin/python" --version \
+    && "${VIRTUAL_ENV}/bin/core-manage" --help
+
+RUN printf '%s\n' \
+        'Defaults env_keep += "PROD DATA_START_DATE INDEX_CODES TUSHARE_TOKEN"' \
+        'Defaults env_keep += "DOLPHIN_HOST DOLPHIN_PORT DOLPHIN_USERNAME DOLPHIN_PASSWORD"' \
+        'Defaults env_keep += "DOLPHIN_CORE_DATABASE DOLPHIN_CORE_TABLE DOLPHIN_DIVIDEND_TABLE"' \
+        'Defaults env_keep += "OBJECT_STORAGE_ACCESS_KEY_ID OBJECT_STORAGE_SECRET_ACCESS_KEY"' \
+        'Defaults env_keep += "OBJECT_STORAGE_ENDPOINT_URL OBJECT_STORAGE_BUCKET OBJECT_STORAGE_REGION"' \
+        'Defaults env_keep += "OBJECT_STORAGE_ADDRESSING_STYLE OBJECT_STORAGE_ROOT_FOLDER"' \
+        > /etc/sudoers.d/arena-runtime-env \
+    && chmod 0440 /etc/sudoers.d/arena-runtime-env \
+    && visudo -cf /etc/sudoers.d/arena-runtime-env
+
+ENV PATH="/opt/arena-runtime/.venv/bin:${PATH}"

@@ -1,0 +1,10 @@
+*
+!Dockerfile.worker
+!runtime/
+runtime/*
+!runtime/dist/
+runtime/dist/*
+!runtime/dist/*.whl
+
+.env
+.env.*

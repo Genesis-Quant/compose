@@ -1,0 +1,6 @@
+[submodule "runtime"]
+	path = runtime
+	url = https://github.com/Genesis-Quant/runtime.git
+[submodule "backend"]
+	path = backend
+	url = https://github.com/Genesis-Quant/backend.git
