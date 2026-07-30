@@ -1,5 +1,5 @@
 *
-!Dockerfile.worker
+!Dockerfile.standalone
 !runtime/
 runtime/*
 !runtime/dist/

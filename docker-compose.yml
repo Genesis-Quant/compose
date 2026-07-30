@@ -1,80 +1,23 @@
 name: arena-dolphinscheduler
 
-x-dolphinscheduler-environment: &dolphinscheduler-environment
-  TZ: Asia/Shanghai
-  DATABASE: postgresql
-  SPRING_JACKSON_TIME_ZONE: UTC
-  SPRING_DATASOURCE_URL: jdbc:postgresql://dolphinscheduler-postgresql:5432/dolphinscheduler
-  SPRING_DATASOURCE_USERNAME: dolphinscheduler
-  SPRING_DATASOURCE_PASSWORD: dolphinscheduler
-  REGISTRY_ZOOKEEPER_CONNECT_STRING: dolphinscheduler-zookeeper:2181
-
-x-dolphinscheduler-common: &dolphinscheduler-common
-  environment: *dolphinscheduler-environment
-  restart: unless-stopped
-  networks:
-    - dolphinscheduler
-
-x-dolphinscheduler-dependencies: &dolphinscheduler-dependencies
-  dolphinscheduler-postgresql:
-    condition: service_healthy
-  dolphinscheduler-zookeeper:
-    condition: service_healthy
-  dolphinscheduler-schema-initializer:
-    condition: service_completed_successfully
-
 services:
-  dolphinscheduler-postgresql:
-    image: postgres:15.2-alpine
+  dolphinscheduler-standalone:
+    image: arena/dolphinscheduler-standalone:3.4.2-runtime-0.1.0
+    build:
+      context: .
+      dockerfile: Dockerfile.standalone
     restart: unless-stopped
     environment:
-      POSTGRES_USER: dolphinscheduler
-      POSTGRES_PASSWORD: dolphinscheduler
-      POSTGRES_DB: dolphinscheduler
-    volumes:
-      - dolphinscheduler-postgresql:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dolphinscheduler -d dolphinscheduler"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
-    networks:
-      - dolphinscheduler
-
-  dolphinscheduler-zookeeper:
-    image: bitnamilegacy/zookeeper:3.7.1-debian-11-r99
-    restart: unless-stopped
-    environment:
-      ALLOW_ANONYMOUS_LOGIN: "yes"
-      ZOO_4LW_COMMANDS_WHITELIST: srvr,ruok,wchs,cons
-    volumes:
-      - dolphinscheduler-zookeeper:/bitnami/zookeeper
-    healthcheck:
-      test: ["CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/2181"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
-    networks:
-      - dolphinscheduler
-
-  dolphinscheduler-schema-initializer:
-    image: apache/dolphinscheduler-tools:3.4.2
-    environment: *dolphinscheduler-environment
-    command: ["tools/bin/upgrade-schema.sh"]
-    restart: "no"
-    depends_on:
-      dolphinscheduler-postgresql:
-        condition: service_healthy
-    volumes:
-      - dolphinscheduler-logs:/opt/dolphinscheduler/logs
-      - dolphinscheduler-shared-local:/opt/soft
-      - dolphinscheduler-resource-local:/dolphinscheduler
-    networks:
-      - dolphinscheduler
-
-  dolphinscheduler-api:
-    <<: *dolphinscheduler-common
-    image: apache/dolphinscheduler-api:3.4.2
+      TZ: Asia/Shanghai
+      DATABASE: h2
+      SPRING_JACKSON_TIME_ZONE: UTC
+      MASTER_SERVER_LOAD_PROTECTION_ENABLED: "false"
+      WORKER_PHYSICAL_TASK_CONFIG_TASK_EXECUTOR_THREAD_SIZE: "1"
+      WORKER_SERVER_LOAD_PROTECTION_ENABLED: "false"
+      WORKER_TENANT_CONFIG_DEFAULT_TENANT_ENABLED: "true"
+    env_file:
+      - ./.env
+      - ./.env.prod
     ports:
       - "127.0.0.1:12345:12345"
       - "127.0.0.1:25333:25333"
@@ -83,73 +26,10 @@ services:
       interval: 15s
       timeout: 5s
       retries: 20
-    depends_on: *dolphinscheduler-dependencies
-    volumes:
-      - dolphinscheduler-logs:/opt/dolphinscheduler/logs
-      - dolphinscheduler-shared-local:/opt/soft
-      - dolphinscheduler-resource-local:/dolphinscheduler
-
-  dolphinscheduler-alert:
-    <<: *dolphinscheduler-common
-    image: apache/dolphinscheduler-alert-server:3.4.2
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:50053/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-    depends_on: *dolphinscheduler-dependencies
-    volumes:
-      - dolphinscheduler-logs:/opt/dolphinscheduler/logs
-
-  dolphinscheduler-master:
-    <<: *dolphinscheduler-common
-    image: apache/dolphinscheduler-master:3.4.2
-    environment:
-      <<: *dolphinscheduler-environment
-      MASTER_SERVER_LOAD_PROTECTION_ENABLED: "false"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:5679/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-    depends_on: *dolphinscheduler-dependencies
-    volumes:
-      - dolphinscheduler-logs:/opt/dolphinscheduler/logs
-      - dolphinscheduler-shared-local:/opt/soft
-
-  dolphinscheduler-worker:
-    <<: *dolphinscheduler-common
-    image: arena/dolphinscheduler-worker:3.4.2-runtime-0.1.0
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
-    environment:
-      <<: *dolphinscheduler-environment
-      WORKER_PHYSICAL_TASK_CONFIG_TASK_EXECUTOR_THREAD_SIZE: "1"
-      WORKER_SERVER_LOAD_PROTECTION_ENABLED: "false"
-      WORKER_TENANT_CONFIG_DEFAULT_TENANT_ENABLED: "true"
-    env_file:
-      - ./.env
-      - ./.env.prod
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:1235/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 20
-    depends_on: *dolphinscheduler-dependencies
+      start_period: 60s
     volumes:
       - D:/Docker/dolphinscheduler/resources:/tmp/dolphinscheduler
       - dolphinscheduler-logs:/opt/dolphinscheduler/logs
-      - dolphinscheduler-shared-local:/opt/soft
-      - dolphinscheduler-resource-local:/dolphinscheduler
-
-networks:
-  dolphinscheduler:
-    driver: bridge
 
 volumes:
-  dolphinscheduler-postgresql:
-  dolphinscheduler-zookeeper:
   dolphinscheduler-logs:
-  dolphinscheduler-shared-local:
-  dolphinscheduler-resource-local:

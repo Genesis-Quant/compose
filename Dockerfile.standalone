@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.11.25 AS uv
 
-FROM apache/dolphinscheduler-worker:3.4.2
+FROM apache/dolphinscheduler-standalone-server:3.4.2
 
 USER root
 
