@@ -3,9 +3,13 @@
 !Dockerfile.backend
 !runtime/
 runtime/*
-!runtime/dist/
-runtime/dist/*
-!runtime/dist/*.whl
+!runtime/pyproject.toml
+!runtime/uv.lock
+!runtime/README.md
+!runtime/src/
+!runtime/src/**
+!runtime/examples/
+!runtime/examples/**
 !backend/
 !backend/app/
 !backend/app/**
