@@ -6,41 +6,15 @@ x-arena-shared: &arena-shared
   target: /shared
 
 services:
-  postgresql:
-    image: postgres:15-bookworm
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-      POSTGRES_DB: "${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
-      TZ: Asia/Shanghai
-    ports:
-      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\"",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-    volumes:
-      - postgresql-data:/var/lib/postgresql/data
-
   dolphinscheduler-schema-initializer:
     image: apache/dolphinscheduler-tools:3.2.2
     restart: "no"
     environment:
       DATABASE: postgresql
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgresql:5432/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://${POSTGRES_HOST:?POSTGRES_HOST is required}:${POSTGRES_PORT:-5432}/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
       SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
     command: ["tools/bin/upgrade-schema.sh"]
-    depends_on:
-      postgresql:
-        condition: service_healthy
 
   dolphinscheduler-standalone:
     image: arena/dolphinscheduler-standalone:3.2.2-runtime-0.1.0
@@ -53,7 +27,7 @@ services:
       DATABASE: postgresql
       SPRING_PROFILES_ACTIVE: postgresql
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgresql:5432/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://${POSTGRES_HOST:?POSTGRES_HOST is required}:${POSTGRES_PORT:-5432}/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
       SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       SPRING_JACKSON_TIME_ZONE: UTC
@@ -90,9 +64,12 @@ services:
     restart: unless-stopped
     environment:
       ARENA_SHARED_DIR: /shared
-      DATABASE_URL: "postgresql://postgresql:5432/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
+      PYTHONPATH: /workspace/backend
+      DATABASE_URL: "postgresql://${POSTGRES_HOST:?POSTGRES_HOST is required}:${POSTGRES_PORT:-5432}/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
       POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      ARENA_JWT_SECRET: "${ARENA_JWT_SECRET:?ARENA_JWT_SECRET is required}"
+      ARENA_JWT_EXPIRE_DAYS: "${ARENA_JWT_EXPIRE_DAYS:-30}"
       DOLPHINSCHEDULER_BASE_URL: http://dolphinscheduler-standalone:12345/dolphinscheduler
       DOLPHINSCHEDULER_PYTHON_GATEWAY_ADDRESS: dolphinscheduler-standalone
       DOLPHINSCHEDULER_PYTHON_GATEWAY_PORT: "25333"
@@ -102,6 +79,13 @@ services:
       - ./.env.prod
     ports:
       - "127.0.0.1:8000:8000"
+    working_dir: /workspace/backend
+    command:
+      [
+        "sh",
+        "-c",
+        "alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /workspace/backend",
+      ]
     healthcheck:
       test:
         [
@@ -115,13 +99,15 @@ services:
       retries: 12
       start_period: 10s
     depends_on:
-      postgresql:
-        condition: service_healthy
       dolphinscheduler-standalone:
         condition: service_healthy
     volumes:
       - *arena-shared
+      - ./backend/apps:/workspace/backend/apps
+      - ./backend/config:/workspace/backend/config
+      - ./backend/alembic:/workspace/backend/alembic
+      - ./backend/main.py:/workspace/backend/main.py
+      - ./backend/alembic.ini:/workspace/backend/alembic.ini
 
 volumes:
   dolphinscheduler-logs:
-  postgresql-data:
