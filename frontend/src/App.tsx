@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { AnimatePresence } from "motion/react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
-import { BrandMark } from "@/components/auth/BrandMark";
+import { BrandMark } from "@/components/mark/BrandMark";
 import { useAppStore } from "@/store";
 
 const LoginPage = lazy(() => import("@/views/LoginPage"));

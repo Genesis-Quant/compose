@@ -1,5 +1,5 @@
-import { AuthForm } from "@/components/auth/AuthForm";
-import { AuthShell } from "@/components/auth/AuthShell";
+import { AuthForm } from "@/components/form/AuthForm";
+import { AuthShell } from "@/layout/AuthShell";
 import { MotionPage } from "@/layout/MotionPage";
 
 export default function LoginPage() {

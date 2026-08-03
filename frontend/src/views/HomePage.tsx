@@ -12,7 +12,7 @@ import IconGitBranch from "~icons/lucide/git-branch";
 import IconRadar from "~icons/lucide/radar";
 import IconRoute from "~icons/lucide/route";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 
 type IconComponent = ComponentType<{ className?: string; width?: number; height?: number }>;
 

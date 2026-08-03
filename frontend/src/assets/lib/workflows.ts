@@ -1,6 +1,18 @@
 import { client } from "@/assets/lib/request";
 import type { WorkflowActionResponse, WorkflowInformation, WorkflowListFilters, WorkflowListPage } from "@/types/workflow";
 
+export const workflowApplicationNames = { query: "Query", factor: "Factor", backtest: "Backtest", incremental: "Incremental" } as const;
+
+export function formatDuration(seconds: number | null | undefined, style: "long" | "short" = "short") {
+  if (seconds === null || seconds === undefined) return "—";
+  if (seconds < 60) return style === "long" ? `${seconds.toFixed(1)} 秒` : `${seconds.toFixed(1)}s`;
+  return style === "long" ? `${Math.floor(seconds / 60)} 分 ${Math.round(seconds % 60)} 秒` : `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+}
+
+export function formatDateTime(value: string | null | undefined) {
+  return value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—";
+}
+
 export const workflowsApi = {
   list: (filters: WorkflowListFilters) => client.get<WorkflowListPage>("/workflows", { params: filters }),
   status: (workflowInstanceId: number) => client.get<WorkflowInformation>(`/workflows/${workflowInstanceId}`),

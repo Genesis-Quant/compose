@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import IconArrowRight from "~icons/lucide/arrow-right";
 import IconCircleAlert from "~icons/lucide/circle-alert";
@@ -9,9 +9,9 @@ import IconLockKeyhole from "~icons/lucide/lock-keyhole";
 import IconUserRound from "~icons/lucide/user-round";
 
 import { useAppStore } from "@/store";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
 
 type FieldErrors = Partial<Record<"username" | "password" | "confirmPassword", string>>;
 
@@ -52,11 +52,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [requestError, setRequestError] = useState("");
+  const composing = useRef(false);
   const isRegister = mode === "register";
   const current = copy[mode];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (composing.current) return;
     const normalizedUsername = username.trim().toLowerCase();
     const nextErrors = validate(mode, normalizedUsername, password, confirmPassword);
     setErrors(nextErrors);
@@ -92,7 +94,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         </div>
        : null}
 
-      <form className="mt-7 space-y-5" onSubmit={submit} noValidate>
+      <form className="mt-7 space-y-5" onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { window.setTimeout(() => { composing.current = false; }, 0); }} onSubmit={submit} noValidate>
         <Field id="username" label="用户名" error={errors.username} hint="3–64 位，仅字母、数字与下划线">
           <div className="auth-input-wrap flex items-center rounded-md border border-input bg-[color:var(--field-bg)] transition-all">
             <IconUserRound className="ml-3 shrink-0 text-muted-foreground" width={16} height={16} />

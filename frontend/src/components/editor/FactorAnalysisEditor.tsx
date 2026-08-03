@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 
+import { NumberField, SelectField, TextField } from "@/components/field/FormFields";
 import {
   analysisDsl,
   analysisSettings,
@@ -16,9 +17,6 @@ import {
   type PriceField,
   type StockPoolCode
 } from "@/types/factor";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DslEditor = lazy(() => import("@/components/editor/DslEditor"));
 
@@ -54,14 +52,14 @@ export default function FactorAnalysisEditor({ catalog, onChange, onValidityChan
   return <div className="space-y-5">
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <SelectField label="股票池" value={settings.stockPool} options={stockPools} disabled={readOnly} onChange={(value) => updateStockPool(value as StockPoolCode)} />
-        <SelectField label="价格字段" value={settings.priceField} options={priceFields} disabled={readOnly} onChange={(priceField) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, priceField: priceField as PriceField }))} />
-        <SelectField label="市值字段" value={settings.marketValueField} options={marketValueFields} disabled={readOnly} onChange={(marketValueField) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, marketValueField: marketValueField as MarketValueField }))} />
-        <NumberField label="分组数量" value={settings.nGroups} min={2} disabled={readOnly} onChange={(nGroups) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, nGroups }))} />
-        <NumberField label="最大滞后阶数" value={settings.maxLags} min={1} max={60} disabled={readOnly} onChange={(maxLags) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, maxLags }))} />
-        <TextField label="回溯周期" value={parameters.dataset_query.lookback} disabled={readOnly} onChange={(lookback) => updateQuery({ ...parameters.dataset_query, lookback })} />
-        <TextField label="开始日期" value={parameters.dataset_query.start_date.replace(/-/g, ".")} disabled={readOnly} onChange={(startDate) => updateQuery({ ...parameters.dataset_query, start_date: startDate.replace(/\./g, "-") })} />
-        <TextField label="结束日期" value={parameters.dataset_query.end_date.replace(/-/g, ".")} disabled={readOnly} onChange={(endDate) => updateQuery({ ...parameters.dataset_query, end_date: endDate.replace(/\./g, "-") })} />
+        <SelectField className="field-block" controlClassName="research-input w-full" labelClassName="field-label" label="股票池" value={settings.stockPool} options={stockPools} disabled={readOnly} onChange={(value) => updateStockPool(value as StockPoolCode)} />
+        <SelectField className="field-block" controlClassName="research-input w-full" labelClassName="field-label" label="价格字段" value={settings.priceField} options={priceFields} disabled={readOnly} onChange={(priceField) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, priceField: priceField as PriceField }))} />
+        <SelectField className="field-block" controlClassName="research-input w-full" labelClassName="field-label" label="市值字段" value={settings.marketValueField} options={marketValueFields} disabled={readOnly} onChange={(marketValueField) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, marketValueField: marketValueField as MarketValueField }))} />
+        <NumberField className="field-block" controlClassName="research-input" labelClassName="field-label" label="分组数量" value={settings.nGroups} min={2} disabled={readOnly} onChange={(nGroups) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, nGroups }))} />
+        <NumberField className="field-block" controlClassName="research-input" labelClassName="field-label" label="最大滞后阶数" value={settings.maxLags} min={1} max={60} disabled={readOnly} onChange={(maxLags) => onChange(applyAnalysisSettings(parameters, dsl, { ...settings, maxLags }))} />
+        <TextField className="field-block" controlClassName="research-input" labelClassName="field-label" label="回溯周期" value={parameters.dataset_query.lookback} disabled={readOnly} onChange={(lookback) => updateQuery({ ...parameters.dataset_query, lookback })} />
+        <TextField className="field-block" controlClassName="research-input" labelClassName="field-label" label="开始日期" value={parameters.dataset_query.start_date.replace(/-/g, ".")} disabled={readOnly} onChange={(startDate) => updateQuery({ ...parameters.dataset_query, start_date: startDate.replace(/\./g, "-") })} />
+        <TextField className="field-block" controlClassName="research-input" labelClassName="field-label" label="结束日期" value={parameters.dataset_query.end_date.replace(/-/g, ".")} disabled={readOnly} onChange={(endDate) => updateQuery({ ...parameters.dataset_query, end_date: endDate.replace(/\./g, "-") })} />
       </div>
     </div>
 
@@ -78,16 +76,4 @@ export default function FactorAnalysisEditor({ catalog, onChange, onValidityChan
       </Suspense>
     </div>
   </div>;
-}
-
-function SelectField({ disabled, label, onChange, options, value }: { disabled: boolean; label: string; onChange: (value: string) => void; options: { label: string; value: string }[]; value: string }) {
-  return <div className="field-block"><Label className="field-label">{label}</Label><Select disabled={disabled} value={value} onValueChange={onChange}><SelectTrigger className="research-input w-full"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></div>;
-}
-
-function NumberField({ disabled, label, max, min, onChange, value }: { disabled: boolean; label: string; max?: number; min: number; onChange: (value: number) => void; value: number }) {
-  return <div className="field-block"><Label className="field-label">{label}</Label><Input className="research-input" disabled={disabled} max={max} min={min} type="number" value={value} onChange={(event) => { const next = event.target.valueAsNumber; if (Number.isFinite(next)) onChange(Math.max(min, max === undefined ? next : Math.min(max, next))); }} /></div>;
-}
-
-function TextField({ disabled, label, onChange, type = "text", value }: { disabled?: boolean; label: string; onChange: (value: string) => void; type?: string; value: string }) {
-  return <div className="field-block"><Label className="field-label">{label}</Label><Input className="research-input" disabled={disabled} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></div>;
 }

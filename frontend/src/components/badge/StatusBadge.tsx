@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react"
 
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/ui/badge"
 import { cn } from "@/assets/lib/utils"
 
 type StatusTone = "blue" | "green" | "amber" | "red" | "neutral"

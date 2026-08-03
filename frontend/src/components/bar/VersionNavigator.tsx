@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight, Ellipsis, GitCompare } from "lucide-react";
 
-import SchedulerStateBadge from "@/components/scheduler/SchedulerStateBadge";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
+import { Badge } from "@/ui/badge";
+import { Button } from "@/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/dropdown-menu";
 
 type VersionItem = { id: number; version: number; remark: string };
 

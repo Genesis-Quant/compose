@@ -3,15 +3,17 @@ import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState }
 
 import { backtestApi } from "@/assets/lib/backtest";
 import { BacktestAnalytics, type BacktestTableName, type BacktestTablePage, type PortfolioPoint } from "@/assets/lib/backtestAnalysis";
+import { chartRange, formatAxisLabel } from "@/assets/lib/chart";
 import { quantStatsReport, type DrawdownPeriod, type QuantStatsReport } from "@/assets/lib/quantstats";
-import { AppPagination } from "@/components/AppPagination";
-import EChart, { chartRange, formatAxisLabel, type AxisFormat, type ChartRange } from "@/components/chart/EChart";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import ReportDateRangeBar from "@/components/report/ReportDateRangeBar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DateRangeBar from "@/components/bar/DateRangeBar";
+import EChart from "@/components/chart/EChart";
+import { AppPagination } from "@/components/pagination/AppPagination";
 import { useAppStore } from "@/store";
 import type { BacktestSummary } from "@/types/backtest";
+import type { AxisFormat, BacktestChartRanges, ChartRange } from "@/types/chart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 
 const tableTabs = [
   { value: "trade_details", label: "交易记录" },
@@ -27,7 +29,6 @@ const tableColumnLabels: Record<BacktestTableName, Record<string, string>> = {
 
 type MetricFormat = "decimal" | "percent" | "integer" | "currency";
 type Metric = { label: string; value: number | null; format?: MetricFormat };
-export type BacktestChartRanges = { netValue?: ChartRange; totalEquity?: ChartRange; drawdown?: ChartRange; rollingSharpe?: ChartRange };
 
 type BacktestReportProps = {
   activeTab?: string;
@@ -103,7 +104,7 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
   return <Tabs value={activeTab ?? localTab} onValueChange={(value) => { setLocalTab(value); onActiveTabChange?.(value); }} className="relative">
     {headerEnd ? <div className="absolute right-0 top-0 z-20">{headerEnd}</div> : null}
     {showTabs ? <div className="sticky top-20 z-30 mb-2 w-fit pb-1"><TabsList><TabsTrigger value="overview">回测概览</TabsTrigger>{tableTabs.map((tab) => <TabsTrigger disabled={loading || Boolean(error)} key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}</TabsList></div> : null}
-    {!loading && !error && portfolio.length ? <ReportDateRangeBar endDate={endDate} maximumDate={portfolio.at(-1)?.time ?? ""} minimumDate={portfolio[0]?.time ?? ""} points={rangePoints} startDate={startDate} theme={theme} onEndDate={(value) => setEndDate(value < startDate ? startDate : value)} onReset={() => { setStartDate(portfolio[0]?.time ?? ""); setEndDate(portfolio.at(-1)?.time ?? ""); }} onStartDate={(value) => setStartDate(value > endDate ? endDate : value)} /> : null}
+    {!loading && !error && portfolio.length ? <DateRangeBar endDate={endDate} maximumDate={portfolio.at(-1)?.time ?? ""} minimumDate={portfolio[0]?.time ?? ""} points={rangePoints} startDate={startDate} theme={theme} onEndDate={(value) => setEndDate(value < startDate ? startDate : value)} onReset={() => { setStartDate(portfolio[0]?.time ?? ""); setEndDate(portfolio.at(-1)?.time ?? ""); }} onStartDate={(value) => setStartDate(value > endDate ? endDate : value)} /> : null}
     <TabsContent value="overview" className="space-y-4">{overview}</TabsContent>
     {tableTabs.map((tab) => <TabsContent className="min-h-[calc(100dvh-20rem)]" key={`${tab.value}:${startDate}:${endDate}`} value={tab.value}><BacktestTable analytics={analytics.current} endDate={endDate} name={tab.value} startDate={startDate} workflowInstanceId={workflowInstanceId} /></TabsContent>)}
   </Tabs>;
@@ -179,10 +180,10 @@ function DrawdownTable({ rows }: { rows: DrawdownPeriod[] }) {
 
 function BacktestTable({ analytics, endDate, name, startDate, workflowInstanceId }: { analytics: BacktestAnalytics | null; endDate: string; name: BacktestTableName; startDate: string; workflowInstanceId: number }) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [data, setData] = useState<BacktestTablePage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const pageSize = 50;
   useLayoutEffect(() => {
     if (!analytics || !startDate || !endDate) return undefined;
     const instance = analytics;
@@ -197,12 +198,12 @@ function BacktestTable({ analytics, endDate, name, startDate, workflowInstanceId
     }
     load().catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason)); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [analytics, endDate, name, page, startDate, workflowInstanceId]);
+  }, [analytics, endDate, name, page, pageSize, startDate, workflowInstanceId]);
   if (loading) return <div className="grid min-h-64 place-items-center rounded-md border bg-card"><Loader2 className="animate-spin text-primary" /></div>;
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   if (!data?.rows.length) return <div className="grid min-h-64 place-items-center rounded-md border bg-card text-sm text-muted-foreground"><TableProperties className="mb-3 size-5" />暂无数据</div>;
   const totalPages = Math.max(1, Math.ceil(data.total / pageSize));
-  return <Card className="overflow-hidden py-0"><CardContent className="p-0"><div className="max-h-[calc(100dvh-20rem)] overflow-auto"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow>{data.columns.map((column) => <TableHead className="whitespace-nowrap" key={column}>{tableColumnLabels[name][column]}</TableHead>)}</TableRow></TableHeader><TableBody>{data.rows.map((row, index) => <TableRow key={index}>{data.columns.map((column) => <TableCell className="max-w-72 whitespace-nowrap font-mono text-xs" key={column}>{displayValue(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div><div className="flex items-center justify-between border-t px-4 py-3"><span className="text-xs text-muted-foreground">共 {data.total} 条</span><AppPagination page={page} totalPages={totalPages} onPageChange={setPage} /></div></CardContent></Card>;
+  return <Card className="overflow-hidden py-0"><CardContent className="p-0"><div className="max-h-[calc(100dvh-20rem)] overflow-auto"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow>{data.columns.map((column) => <TableHead className="whitespace-nowrap" key={column}>{tableColumnLabels[name][column]}</TableHead>)}</TableRow></TableHeader><TableBody>{data.rows.map((row, index) => <TableRow key={index}>{data.columns.map((column) => <TableCell className="max-w-72 whitespace-nowrap font-mono text-xs" key={column}>{displayValue(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div><div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-muted-foreground">共 {data.total} 条</span><AppPagination page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} /></div></CardContent></Card>;
 }
 
 function createReport(rows: PortfolioPoint[], periods: number, riskFreeRate: number) { return rows.length ? quantStatsReport(rows.map((row) => ({ time: row.time, value: row.dailyReturn ?? 0 })), periods, riskFreeRate) : null; }

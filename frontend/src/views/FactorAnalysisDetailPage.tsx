@@ -11,19 +11,20 @@ import IconSave from "~icons/lucide/save";
 import IconTerminal from "~icons/lucide/terminal";
 
 import { factorApi } from "@/assets/lib/factor";
+import { errorMessage } from "@/assets/lib/utils";
 import { workflowsApi } from "@/assets/lib/workflows";
 import FactorAnalysisEditor from "@/components/editor/FactorAnalysisEditor";
-import FactorAnalysisReport from "@/components/report/FactorAnalysisReport";
-import RequestBodyDialog from "@/components/research/RequestBodyDialog";
-import SaveVersionDialog from "@/components/research/SaveVersionDialog";
-import VersionCompareDialog from "@/components/research/VersionCompareDialog";
-import VersionNavigator from "@/components/research/VersionNavigator";
-import TaskLogModal from "@/components/task/TaskLogModal";
-import WorkflowRunButton from "@/components/workflow/WorkflowRunButton";
+import FactorAnalysisReport from "@/components/panel/FactorAnalysisReport";
+import RequestBodyDialog from "@/components/modal/RequestBodyDialog";
+import SaveVersionDialog from "@/components/modal/SaveVersionDialog";
+import VersionCompareDialog from "@/components/modal/VersionCompareDialog";
+import VersionNavigator from "@/components/bar/VersionNavigator";
+import TaskLogModal from "@/components/modal/TaskLogModal";
+import WorkflowRunButton from "@/components/button/WorkflowRunButton";
 import { analysisDsl, analysisSettings, applyAnalysisSettings, defaultAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion } from "@/types/factor";
 import { terminalStates } from "@/types/workflow";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/tabs";
 
 export default function FactorAnalysisDetailPage() {
   const projectId = Number(useParams().projectId);
@@ -243,7 +244,6 @@ export default function FactorAnalysisDetailPage() {
   </div>;
 }
 
-function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : String(reason); }
 
 type AnalysisControlsProps = {
   activeWorkflow: boolean;

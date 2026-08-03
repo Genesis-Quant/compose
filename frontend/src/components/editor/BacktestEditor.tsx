@@ -2,16 +2,17 @@ import { Braces, FunctionSquare, Settings2, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { queryApi } from "@/assets/lib/query";
+import { validCallback } from "@/assets/lib/backtest";
 import DslEditor from "@/components/editor/DslEditor";
-import DolphinDbEditor, { validCallback } from "@/components/editor/DolphinDbEditor";
-import QueryCodesField from "@/components/research/QueryCodesField";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogDescription, DialogHeader, DialogTitle, LargeDialogContent } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DolphinDbEditor from "@/components/editor/DolphinDbEditor";
+import { NumberField, SelectField, TextField } from "@/components/field/FormFields";
+import QueryCodesField from "@/components/field/QueryCodesField";
+import { Badge } from "@/ui/badge";
+import { Button } from "@/ui/button";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle, LargeDialogContent } from "@/ui/dialog";
+import { Label } from "@/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 import { backtestCodesDsl, backtestDatasetDsl, callbackNames, updateBacktestCodesDsl, updateBacktestDatasetDsl, type BacktestParameters, type CallbackName } from "@/types/backtest";
 import type { DslCatalog, FactorQuery } from "@/types/factor";
 import type { QueryProject } from "@/types/query";
@@ -83,9 +84,6 @@ export default function BacktestEditor({ catalog, onChange, onValidityChange, pa
   </div>;
 }
 
-function SelectField({ disabled, label, onChange, options, value }: { disabled: boolean; label: string; onChange: (value: string) => void; options: { label: string; value: string }[]; value: string }) { return <div className="space-y-2"><Label>{label}</Label><Select disabled={disabled} value={value} onValueChange={onChange}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></div>; }
-function TextField({ disabled, label, onChange, value }: { disabled: boolean; label: string; onChange: (value: string) => void; value: string }) { return <div className="space-y-2"><Label>{label}</Label><Input disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} /></div>; }
-function NumberField({ disabled, label, min, onChange, step = 1, value }: { disabled: boolean; label: string; min: number; onChange: (value: number) => void; step?: number; value: number }) { return <div className="space-y-2"><Label>{label}</Label><Input disabled={disabled} min={min} step={step} type="number" value={value} onChange={(event) => { if (Number.isFinite(event.target.valueAsNumber)) onChange(Math.max(min, event.target.valueAsNumber)); }} /></div>; }
 function QueryRange({ onChange, projects, projectsError, query, readOnly }: { onChange: (query: FactorQuery) => void; projects: QueryProject[]; projectsError: string; query: FactorQuery; readOnly: boolean }) { return <div className="space-y-3 rounded-md border bg-muted/10 p-4"><div className="grid gap-3 sm:grid-cols-3"><TextField label="开始日期" value={query.start_date} disabled={readOnly} onChange={(startDate) => onChange({ ...query, start_date: startDate })} /><TextField label="结束日期" value={query.end_date} disabled={readOnly} onChange={(endDate) => onChange({ ...query, end_date: endDate })} /><TextField label="回溯周期" value={query.lookback} disabled={readOnly} onChange={(lookback) => onChange({ ...query, lookback })} /></div><QueryCodesField codes={query.codes} disabled={readOnly} projects={projects} projectsError={projectsError} onChange={(codes) => onChange({ ...query, codes })} /></div>; }
 function numberConfig(parameters: BacktestParameters, name: string, fallback: number) { const value = Number(parameters.config[name]); return Number.isFinite(value) ? value : fallback; }
 function updateConfig(parameters: BacktestParameters, name: string, value: number): BacktestParameters { return { ...parameters, config: { ...parameters.config, [name]: value } }; }

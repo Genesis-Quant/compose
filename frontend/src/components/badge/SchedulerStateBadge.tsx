@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { CheckCircle2, CircleDashed, CircleX, Clock3, Loader2, PauseCircle, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/assets/lib/utils";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusBadge } from "@/components/badge/StatusBadge";
 import { terminalStates } from "@/types/workflow";
 
 export default function SchedulerStateBadge({ className, label, state, title }: { className?: string; label?: ReactNode; state: string; title?: string }) {

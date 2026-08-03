@@ -1,133 +1,14 @@
-import { Activity, ChevronDown, ChevronUp, Clock3, Eye, Loader2, RefreshCw, Square, Terminal, Workflow } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Workflow } from "lucide-react";
+import { useCallback, useState } from "react";
 
-import { workflowsApi } from "@/assets/lib/workflows";
-import { AppPagination } from "@/components/AppPagination";
-import { PageHero } from "@/components/PageHero";
-import TaskLogModal from "@/components/task/TaskLogModal";
-import SchedulerStateBadge, { schedulerStateLabel } from "@/components/scheduler/SchedulerStateBadge";
-import WorkflowDetailsModal from "@/components/workflow/WorkflowDetailsModal";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useAppStore } from "@/store";
-import { terminalStates, type WorkflowApplication, type WorkflowListItem, type WorkflowListPage } from "@/types/workflow";
-
-const PAGE_SIZE = 20;
-const applicationNames = { query: "Query", factor: "Factor", backtest: "Backtest", incremental: "Incremental" } as const;
-type StateFilter = "all" | "active" | "success" | "failure";
-type SelectedTask = { workflowInstanceId: number; taskInstanceId: number };
+import { PageHero } from "@/components/bar/PageHero";
+import WorkflowPanel from "@/components/panel/WorkflowPanel";
 
 export default function WorkflowsPage() {
-  const isAdmin = useAppStore((store) => store.user?.is_admin ?? false);
-  const [result, setResult] = useState<WorkflowListPage | null>(null);
-  const [page, setPage] = useState(1);
-  const [application, setApplication] = useState<"all" | WorkflowApplication>("all");
-  const [state, setState] = useState<StateFilter>("all");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [stoppingWorkflowId, setStoppingWorkflowId] = useState<number | null>(null);
-  const [error, setError] = useState("");
-  const [detailsWorkflow, setDetailsWorkflow] = useState<WorkflowListItem | null>(null);
-  const [selectedTask, setSelectedTask] = useState<SelectedTask | null>(null);
-  const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / PAGE_SIZE));
-
-  const load = useCallback(async (background = false) => {
-    background ? setRefreshing(true) : setLoading(true);
-    setError("");
-    try {
-      setResult(await workflowsApi.list({ page, page_size: PAGE_SIZE, application: application === "all" ? undefined : application, state: state === "all" ? undefined : state }));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [application, page, state]);
-
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    setDetailsWorkflow((current) => current ? result?.items.find((workflow) => workflow.workflow_instance_id === current.workflow_instance_id) ?? current : null);
-  }, [result]);
-  useEffect(() => {
-    if (!stoppingWorkflowId) return;
-    const workflow = result?.items.find((item) => item.workflow_instance_id === stoppingWorkflowId);
-    if (workflow && terminalStates.has(workflow.state)) setStoppingWorkflowId(null);
-  }, [result, stoppingWorkflowId]);
-  const containsActiveWorkflow = useMemo(() => result?.items.some((workflow) => !terminalStates.has(workflow.state)) ?? false, [result]);
-  useEffect(() => {
-    if (!containsActiveWorkflow) return undefined;
-    const timer = window.setInterval(() => load(true), 5000);
-    return () => window.clearInterval(timer);
-  }, [containsActiveWorkflow, load]);
-
-  function changeApplication(value: string) { setApplication(value as "all" | WorkflowApplication); setPage(1); }
-  function changeState(value: string) { setState(value as StateFilter); setPage(1); }
-
-  async function stopWorkflow(workflowInstanceId: number) {
-    if (stoppingWorkflowId === workflowInstanceId) return;
-    setStoppingWorkflowId(workflowInstanceId);
-    setError("");
-    try {
-      await workflowsApi.stop(workflowInstanceId);
-      await load(true);
-    } catch (reason) {
-      setStoppingWorkflowId(null);
-      setError(reason instanceof Error ? reason.message : String(reason));
-    }
-  }
-
+  const [total, setTotal] = useState(0);
+  const updateTotal = useCallback((value: number) => setTotal(value), []);
   return <div className="space-y-6">
-    <PageHero chips={["统一状态", "实时 Task", "自动刷新"]} description="查看 Query、Factor、Backtest 和 Incremental 的工作流实例，以及从 DolphinScheduler 实时获取的 Task。" eyebrow="WORKFLOWS" icon={Workflow} stat={{ label: "筛选结果", value: result?.total ?? 0 }} title="工作流管理" variant="analysis" />
-    {error ? <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div> : null}
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="flex flex-wrap items-end gap-3"><Filter label="应用"><Select value={application} onValueChange={changeApplication}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部应用</SelectItem><SelectItem value="query">Query</SelectItem><SelectItem value="factor">Factor</SelectItem><SelectItem value="backtest">Backtest</SelectItem><SelectItem value="incremental">Incremental</SelectItem></SelectContent></Select></Filter><Filter label="状态"><Select value={state} onValueChange={changeState}><SelectTrigger className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="active">运行中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="failure">失败</SelectItem></SelectContent></Select></Filter></div><div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">运行中的工作流每 5 秒自动更新</span><Button variant="outline" disabled={refreshing} onClick={() => load(true)}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button></div></div>
-    <Card className="gap-0 py-0 shadow-sm"><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead className="w-36 px-4">Workflow ID</TableHead>{isAdmin ? <TableHead className="w-32">用户</TableHead> : null}<TableHead className="w-28">应用</TableHead><TableHead className="w-40">状态</TableHead><TableHead>工作流</TableHead><TableHead className="min-w-96">Tasks</TableHead><TableHead className="w-36">开始时间</TableHead><TableHead className="w-24 text-right">耗时</TableHead><TableHead className="w-24 px-4 text-right">操作</TableHead></TableRow></TableHeader><TableBody>
-      {result?.items.map((workflow) => <WorkflowRow key={workflow.workflow_instance_id} showOwner={isAdmin} stopping={stoppingWorkflowId === workflow.workflow_instance_id} workflow={workflow} onDetails={() => setDetailsWorkflow(workflow)} onLogs={(taskInstanceId) => setSelectedTask({ workflowInstanceId: workflow.workflow_instance_id, taskInstanceId })} onStop={() => stopWorkflow(workflow.workflow_instance_id)} />)}
-      {loading ? <WorkflowTableState colSpan={isAdmin ? 9 : 8}><Loader2 className="animate-spin" />正在读取工作流...</WorkflowTableState> : null}
-      {!loading && !result?.items.length ? <WorkflowTableState colSpan={isAdmin ? 9 : 8}><Activity />当前筛选下暂无工作流实例</WorkflowTableState> : null}
-    </TableBody></Table></CardContent></Card>
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground">共 {result?.total ?? 0} 个工作流实例</p><AppPagination page={page} totalPages={totalPages} onPageChange={setPage} /></div>
-    <WorkflowDetailsModal open={detailsWorkflow !== null} workflow={detailsWorkflow} onOpenChange={(open) => { if (!open) setDetailsWorkflow(null); }} />
-    <TaskLogModal open={selectedTask !== null} workflowInstanceId={selectedTask?.workflowInstanceId ?? null} taskInstanceId={selectedTask?.taskInstanceId ?? null} onOpenChange={(open) => { if (!open) setSelectedTask(null); }} />
+    <PageHero chips={["统一状态", "实时 Task", "自动刷新"]} description="查看 Query、Factor、Backtest 和 Incremental 的工作流实例，以及从 DolphinScheduler 实时获取的 Task。" eyebrow="WORKFLOWS" icon={Workflow} stat={{ label: "筛选结果", value: total }} title="工作流管理" variant="analysis" />
+    <WorkflowPanel onTotalChange={updateTotal} />
   </div>;
 }
-
-function Filter({ children, label }: { children: React.ReactNode; label: string }) { return <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">{label}</Label>{children}</div>; }
-
-function WorkflowRow({ onDetails, onLogs, onStop, showOwner, stopping, workflow }: { onDetails: () => void; onLogs: (taskInstanceId: number) => void; onStop: () => void; showOwner: boolean; stopping: boolean; workflow: WorkflowListItem }) {
-  const active = !terminalStates.has(workflow.state);
-  return <TableRow><TableCell className="px-4 font-mono text-xs font-semibold">{workflow.workflow_instance_id}</TableCell>{showOwner ? <TableCell><div className="truncate text-xs font-medium">{workflow.owner_username}</div><div className="mt-1 font-mono text-[10px] text-muted-foreground">User #{workflow.user_id}</div></TableCell> : null}<TableCell><Badge variant="secondary" className="font-mono uppercase">{applicationNames[workflow.application]}</Badge></TableCell><TableCell><SchedulerStateBadge state={workflow.state} /></TableCell><TableCell><div className="max-w-72 truncate text-xs font-medium">{workflow.workflow_name}</div><div className="mt-1 truncate font-mono text-[10px] text-muted-foreground">Definition #{workflow.workflow_definition_code} · Record #{workflow.record_id}</div></TableCell><TableCell><WorkflowTaskCapsules tasks={workflow.tasks} error={workflow.tasks_error} onLogs={onLogs} /></TableCell><TableCell><WorkflowStartTime value={workflow.started_at ?? workflow.created_at} /></TableCell><TableCell className="text-right"><span className="inline-flex items-center gap-1.5 font-mono text-xs"><Clock3 className="size-3 text-muted-foreground" />{formatDuration(workflow.duration_seconds)}</span></TableCell><TableCell className="px-4"><div className="flex justify-end gap-1">{active ? <Button title={stopping ? "正在终止工作流" : "终止工作流"} aria-label={stopping ? "正在终止工作流" : "终止工作流"} size="icon-sm" variant="destructive" disabled={stopping} onClick={onStop}>{stopping ? <Loader2 className="animate-spin" /> : <Square />}</Button> : null}<Button title="查看详情" aria-label="查看工作流详情" size="icon-sm" variant="ghost" onClick={onDetails}><Eye /></Button></div></TableCell></TableRow>;
-}
-
-function WorkflowTaskCapsules({ error, onLogs, tasks }: { error?: string | null; onLogs: (taskInstanceId: number) => void; tasks: WorkflowListItem["tasks"] }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [collapsedHeight, setCollapsedHeight] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const content = contentRef.current;
-    if (!content) return undefined;
-    const measure = () => {
-      const capsules = Array.from(content.children) as HTMLElement[];
-      const rowTops = [...new Set(capsules.map((capsule) => capsule.offsetTop))].sort((a, b) => a - b);
-      if (rowTops.length <= 2) { setCollapsedHeight(null); setExpanded(false); return; }
-      const secondRowTop = rowTops[1];
-      setCollapsedHeight(Math.max(...capsules.filter((capsule) => capsule.offsetTop === secondRowTop).map((capsule) => capsule.offsetTop + capsule.offsetHeight)));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [tasks]);
-  if (error) return <span className="text-xs text-destructive" title={error}>Task 查询失败</span>;
-  if (!tasks.length) return <span className="text-xs text-muted-foreground">暂无 Task</span>;
-  const collapsible = collapsedHeight !== null;
-  return <div className="max-w-[36rem]"><div className="overflow-hidden" style={!expanded && collapsible ? { maxHeight: collapsedHeight } : undefined}><div ref={contentRef} className="flex flex-wrap gap-1.5 whitespace-normal">{tasks.map((task, index) => <SchedulerStateBadge className="max-w-56" key={task.task_code ?? task.task_instance_id ?? `${task.name}-${index}`} label={<><span className="truncate">{task.name}</span><span className="opacity-70">{schedulerStateLabel(task.state)}</span>{task.task_instance_id !== null && task.state !== "SUBMITTED_SUCCESS" ? <button aria-label={`查看 ${task.name} 日志`} className="-mr-1 ml-0.5 grid size-5 shrink-0 place-items-center rounded-full opacity-70 transition hover:bg-background/60 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="查看日志" type="button" onClick={() => onLogs(task.task_instance_id!)}><Terminal className="size-3" /></button> : null}</>} state={task.state} title={`${task.name} · ${task.task_instance_id === null ? "未调度" : `Task #${task.task_instance_id}`} · ${task.state}`} />)}</div></div>{collapsible ? <Button aria-expanded={expanded} className="mt-1 h-6 gap-1 px-1.5 text-[11px] text-muted-foreground" size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>{expanded ? <><ChevronUp className="size-3" />收起</> : <><ChevronDown className="size-3" />展开</>}</Button> : null}</div>;
-}
-
-function WorkflowTableState({ children, colSpan }: { children: React.ReactNode; colSpan: number }) { return <TableRow><TableCell colSpan={colSpan}><div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">{children}</div></TableCell></TableRow>; }
-function WorkflowStartTime({ value }: { value: string }) { const date = new Date(value); const sameYear = date.getFullYear() === new Date().getFullYear(); const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`; const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`; return <div className="font-mono text-xs">{sameYear ? null : <div>{day}</div>}<div className={sameYear ? "" : "mt-1"}>{time}</div></div>; }
-function pad(value: number) { return String(value).padStart(2, "0"); }
-function formatDuration(seconds: number | null) { if (seconds === null) return "—"; if (seconds < 60) return `${seconds.toFixed(1)}s`; const minutes = Math.floor(seconds / 60); return `${minutes}m ${Math.round(seconds % 60)}s`; }

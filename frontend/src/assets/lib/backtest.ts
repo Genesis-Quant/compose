@@ -1,6 +1,11 @@
 import { client } from "@/assets/lib/request";
 import type { DslCatalog } from "@/types/factor";
-import type { BacktestOutput, BacktestOutputName, BacktestParameters, BacktestProject, BacktestProjectPage, BacktestSummary, BacktestVersion, BacktestWorkflowSubmitted } from "@/types/backtest";
+import { callbackParameters, type BacktestOutput, type BacktestOutputName, type BacktestParameters, type BacktestProject, type BacktestProjectPage, type BacktestSummary, type BacktestVersion, type BacktestWorkflowSubmitted, type CallbackName } from "@/types/backtest";
+
+export function validCallback(callback: CallbackName, source: string) {
+  const signature = callbackParameters[callback].replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*");
+  return new RegExp(`\\bdef\\s+${callback}\\s*\\(\\s*${signature}\\s*\\)\\s*\\{`).test(source);
+}
 
 export const backtestApi = {
   listProjects: (page = 1, pageSize = 20) => client.get<BacktestProjectPage>("/backtest/projects", { params: { page, page_size: pageSize } }),

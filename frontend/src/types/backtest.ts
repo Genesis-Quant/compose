@@ -122,13 +122,7 @@ export const defaultBacktestParameters = (): BacktestParameters => ({
   risk_free_rate: 0.04,
   source_ref: "coreBacktestSourceData",
   message_ref: "coreBacktestMessage",
-  utils: `riskParityCapitalRatio = 0.98
-riskParityLotSize = 100l
-riskParityMomentumThreshold = 0.0
-riskParityAssetCount = 20l
-riskParityCovarianceWindow = 60l
-
-def riskParityObjective(weights, covariance) {
+  utils: `def riskParityObjective(weights, covariance) {
     count = size(weights)
     covarianceTimesWeights = take(0.0, count)
     for (index in 0..(count - 1)) {
@@ -177,6 +171,11 @@ def solveRiskParity(covariance, tolerance=0.000000000001, maxIterations=1000l) {
     initialize: `def initialize(mutable context) {
     context["barCount"] = 0l
     context["rebalanceCount"] = 0l
+    context["riskParityCapitalRatio"] = 0.98
+    context["riskParityLotSize"] = 100l
+    context["riskParityMomentumThreshold"] = 0.0
+    context["riskParityAssetCount"] = 20l
+    context["riskParityCovarianceWindow"] = 60l
 }`,
     beforeTrading: `def beforeTrading(mutable context) {
     return NULL
@@ -190,13 +189,13 @@ def solveRiskParity(covariance, tolerance=0.000000000001, maxIterations=1000l) {
     if (historyTimes.size() == 0) return
     signalTime = historyTimes[historyTimes.size() - 1]
     signal = select * from source where time == signalTime
-    eligible = select code, momentum_120d from signal where stock_pool_member == true, momentum_120d > objByName("riskParityMomentumThreshold"), not isNull(momentum_120d), not isNull(return_1d)
-    selectedCount = min(long(objByName("riskParityAssetCount")), eligible.rows())
+    eligible = select code, momentum_120d from signal where stock_pool_member == true, momentum_120d > context["riskParityMomentumThreshold"], not isNull(momentum_120d), not isNull(return_1d)
+    selectedCount = min(long(context["riskParityAssetCount"]), eligible.rows())
     rowCount = message.rows()
     weights = take(0.0, rowCount)
     if (selectedCount > 0) {
         selected = eligible[isort(eligible.momentum_120d, false)[0:selectedCount]]
-        riskDates = historyTimes.tail(long(objByName("riskParityCovarianceWindow")))
+        riskDates = historyTimes.tail(long(context["riskParityCovarianceWindow"]))
         riskHistory = select time, code, return_1d from source where time in riskDates, code in selected.code
         returnMatrix = exec return_1d from riskHistory pivot by time, code
         returnMatrix = nullFill(returnMatrix, 0.0)
@@ -217,7 +216,7 @@ def solveRiskParity(covariance, tolerance=0.000000000001, maxIterations=1000l) {
     equity = Backtest::getAvailableCash(context.engine, "stock") + sum(double(currentQuantities) * message.open)
     targetQuantities = take(0l, rowCount)
     for (index in 0..(rowCount - 1)) {
-        if (weights[index] > 0 && message.open[index] > 0) targetQuantities[index] = long(floor(equity * objByName("riskParityCapitalRatio") * weights[index] / message.open[index] / double(objByName("riskParityLotSize")))) * objByName("riskParityLotSize")
+        if (weights[index] > 0 && message.open[index] > 0) targetQuantities[index] = long(floor(equity * context["riskParityCapitalRatio"] * weights[index] / message.open[index] / double(context["riskParityLotSize"]))) * context["riskParityLotSize"]
     }
     for (index in 0..(rowCount - 1)) {
         difference = targetQuantities[index] - currentQuantities[index]

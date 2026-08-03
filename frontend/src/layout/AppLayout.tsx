@@ -1,11 +1,11 @@
 import { CandlestickChart, DatabaseZap, FlaskConical, Home, Menu, Moon, ShieldCheck, Sun, Workflow } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/ui/avatar";
+import { Button } from "@/ui/button";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/ui/sheet";
+import { Switch } from "@/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/tabs";
 import { useAppStore } from "@/store";
 
 const navigation = [

@@ -4,6 +4,8 @@ import IconDatabase from "~icons/lucide/database";
 import IconLoaderCircle from "~icons/lucide/loader-circle";
 
 import { factorApi } from "@/assets/lib/factor";
+import { chartRange, formatAxisLabel } from "@/assets/lib/chart";
+import { errorMessage } from "@/assets/lib/utils";
 import {
   FactorAnalytics,
   type DecayPoint,
@@ -12,14 +14,14 @@ import {
   type InformationPoint,
   type LongShortPoint
 } from "@/assets/lib/factorAnalysis";
-import EChart, { chartRange, formatAxisLabel, type AxisFormat, type ChartRange } from "@/components/chart/EChart";
-import ReportDateRangeBar from "@/components/report/ReportDateRangeBar";
+import DateRangeBar from "@/components/bar/DateRangeBar";
+import EChart from "@/components/chart/EChart";
 import { useAppStore } from "@/store";
+import type { AxisFormat, ChartRange, FactorChartRanges } from "@/types/chart";
 import type { FactorAnalysisParameters, FactorMetrics } from "@/types/factor";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 
 type DualChartRanges = { primary?: ChartRange; secondary?: ChartRange };
-export type FactorChartRanges = { information?: DualChartRanges; longShort?: DualChartRanges; groupStatistics?: ChartRange; groups?: ChartRange; decay?: ChartRange };
 
 type FactorAnalysisReportProps = {
   chartRanges?: FactorChartRanges;
@@ -196,7 +198,7 @@ export default function FactorAnalysisReport({ chartRanges, factor, onChartRange
   if (!metrics || !factor) return null;
 
   return <section className="space-y-4">
-    <ReportDateRangeBar
+    <DateRangeBar
       endDate={endDate}
       maximumDate={maximumDate}
       minimumDate={minimumDate}
@@ -454,8 +456,4 @@ function ratio(values: number[], predicate: (value: number) => boolean) {
 function format(value: number | null | undefined, type: "number" | "percent" = "number") {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return type === "percent" ? `${(value * 100).toFixed(2)}%` : value.toFixed(4);
-}
-
-function errorMessage(reason: unknown) {
-  return reason instanceof Error ? reason.message : String(reason);
 }

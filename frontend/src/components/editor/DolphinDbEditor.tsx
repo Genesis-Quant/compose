@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 
 import "@/assets/lib/monaco";
 import { useAppStore } from "@/store";
-import { callbackParameters, type CallbackName } from "@/types/backtest";
 
 const snippets = [
   ["submitOrder", "Backtest::submitOrder(context.engine, (${1:symbol}, ${2:tradeTime}, 5, ${3:price}, ${4:quantity}, 1), \"${5:strategy}\")"],
@@ -39,11 +38,6 @@ export default function DolphinDbEditor({ modelPath, onChange, onValidityChange,
   }
 
   return <div className="h-full min-h-0 overflow-hidden rounded-md border"><Editor beforeMount={configureDolphinDb} height="100%" language="dolphindb" onChange={change} onMount={mount} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, cursorBlinking: "smooth", fontFamily: "\"Cascadia Code\", \"JetBrains Mono\", Consolas, monospace", fontLigatures: true, fontSize: 13, formatOnPaste: true, lineHeight: 21, minimap: { enabled: false }, padding: { top: 16, bottom: 16 }, quickSuggestions: true, readOnly, scrollBeyondLastLine: false, suggest: { preview: true, showSnippets: true }, tabSize: 4, wordWrap: "on" }} path={modelPath} theme={theme === "dark" ? "vs-dark" : "light"} value={value} /></div>;
-}
-
-export function validCallback(callback: CallbackName, source: string) {
-  const signature = callbackParameters[callback].replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*");
-  return new RegExp(`\\bdef\\s+${callback}\\s*\\(\\s*${signature}\\s*\\)\\s*\\{`).test(source);
 }
 
 function configureDolphinDb(monaco: Monaco) {

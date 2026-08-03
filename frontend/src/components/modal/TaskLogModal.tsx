@@ -7,10 +7,10 @@ import IconServer from "~icons/lucide/server";
 import IconTerminal from "~icons/lucide/terminal";
 
 import { tasksApi } from "@/assets/lib/tasks";
-import { workflowsApi } from "@/assets/lib/workflows";
-import SchedulerStateBadge from "@/components/scheduler/SchedulerStateBadge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatDuration, workflowsApi } from "@/assets/lib/workflows";
+import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
+import { Button } from "@/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { terminalStates, type WorkflowInformation } from "@/types/workflow";
 
 const PAGE_SIZE = 500;
@@ -132,4 +132,3 @@ export default function TaskLogModal({ onOpenChange, open, taskInstanceId, workf
 
 function TaskMeta({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) { return <div className="min-w-0 border-r border-t px-4 py-3 first:border-t-0 sm:border-t-0"><div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">{icon}{label}</div><div className="mt-1.5 truncate font-mono text-xs font-medium">{value}</div></div>; }
 function emptyLogMessage(error: string) { return error ? "" : "暂无日志"; }
-function formatDuration(seconds: number | null | undefined) { if (seconds === null || seconds === undefined) return "—"; if (seconds < 60) return `${seconds.toFixed(1)}s`; return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`; }

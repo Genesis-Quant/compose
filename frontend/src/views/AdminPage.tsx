@@ -13,14 +13,15 @@ import {
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { adminApi } from "@/assets/lib/admin";
-import { PageHero } from "@/components/PageHero";
-import { schedulerStateLabel } from "@/components/scheduler/SchedulerStateBadge";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { errorMessage } from "@/assets/lib/utils";
+import { PageHero } from "@/components/bar/PageHero";
+import WorkflowPanel from "@/components/panel/WorkflowPanel";
+import { Badge } from "@/ui/badge";
+import { Button } from "@/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/ui/card";
+import { StatusBadge } from "@/components/badge/StatusBadge";
+import { Switch } from "@/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
 import { useAppStore } from "@/store";
 import type { AdminOverview } from "@/types/admin";
 
@@ -182,13 +183,7 @@ export default function AdminPage() {
       </SectionCard>
     </div>
 
-    <SectionCard title="近期工作流实例" description="DolphinScheduler 项目最近 20 个工作流实例。">
-      <Table>
-        <TableHeader><TableRow><TableHead>实例</TableHead><TableHead>状态</TableHead><TableHead>Worker Group</TableHead><TableHead>开始时间</TableHead><TableHead>结束时间</TableHead><TableHead>耗时</TableHead></TableRow></TableHeader>
-        <TableBody>{overview?.scheduler.recent_instances.map((instance) => <TableRow key={instance.id}><TableCell><div className="max-w-80 truncate font-medium" title={instance.name}>{instance.name}</div><div className="mt-1 font-mono text-[10px] text-muted-foreground">Instance #{instance.id}</div></TableCell><TableCell><StatusBadge tone={stateTone(instance.state)}>{schedulerStateLabel(instance.state)}</StatusBadge></TableCell><TableCell>{instance.worker_group}</TableCell><TableCell className="text-xs">{formatDate(instance.started_at)}</TableCell><TableCell className="text-xs">{formatDate(instance.finished_at)}</TableCell><TableCell className="font-mono text-xs">{instance.duration ?? "—"}</TableCell></TableRow>)}</TableBody>
-      </Table>
-      <EmptyState loading={loading} empty={!overview?.scheduler.recent_instances.length} />
-    </SectionCard>
+    <section className="space-y-4"><div><h2 className="text-lg font-semibold">工作流实例</h2><p className="mt-1 text-sm text-muted-foreground">查看、筛选和管理全部应用的工作流及其 Task。</p></div><WorkflowPanel /></section>
 
     <SectionCard title="用户权限" description="管理员可以查看全站任务并使用本管理面板。">
       <Table>
@@ -229,24 +224,12 @@ function EmptyState({ empty, loading }: { empty: boolean; loading: boolean }) {
   return <div className="flex min-h-24 items-center justify-center gap-2 text-sm text-muted-foreground">{loading ? <><Loader2 className="size-4 animate-spin" />正在加载...</> : <><Activity className="size-4" />暂无数据</>}</div>;
 }
 
-function stateTone(state: string): "blue" | "green" | "amber" | "red" | "neutral" {
-  if (["SUCCESS", "FORCED_SUCCESS"].includes(state)) return "green";
-  if (["FAILURE", "STOP", "KILL"].includes(state)) return "red";
-  if (["RUNNING_EXECUTION", "DISPATCH", "SUBMITTED_SUCCESS"].includes(state)) return "blue";
-  if (["PAUSE", "WAIT_TO_RUN", "SERIAL_WAIT"].includes(state)) return "amber";
-  return "neutral";
-}
-
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—";
 }
 
 function formatPercent(value: number | null) {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
-}
-
-function errorMessage(reason: unknown) {
-  return reason instanceof Error ? reason.message : String(reason);
 }
 
 function updateAdministratorCount(overview: AdminOverview | null, isAdmin: boolean) {

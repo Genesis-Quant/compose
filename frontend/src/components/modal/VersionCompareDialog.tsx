@@ -1,18 +1,17 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
+import { mergeChartRanges } from "@/assets/lib/chart";
 import { stockPoolCode, stockPools, type FactorAnalysisParameters, type FactorVersion } from "@/types/factor";
 import type { BacktestParameters, BacktestVersion } from "@/types/backtest";
-import { mergeChartRanges } from "@/components/chart/EChart";
-import type { FactorChartRanges } from "@/components/report/FactorAnalysisReport";
-import type { BacktestChartRanges } from "@/components/report/BacktestReport";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, LargeDialogContent } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { BacktestChartRanges, FactorChartRanges } from "@/types/chart";
+import { Button } from "@/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, LargeDialogContent } from "@/ui/dialog";
+import { Label } from "@/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/tabs";
 
-const FactorAnalysisReport = lazy(() => import("@/components/report/FactorAnalysisReport"));
-const BacktestReport = lazy(() => import("@/components/report/BacktestReport"));
+const FactorAnalysisReport = lazy(() => import("@/components/panel/FactorAnalysisReport"));
+const BacktestReport = lazy(() => import("@/components/panel/BacktestReport"));
 const ignoreMetrics = () => undefined;
 
 type Version = FactorVersion | BacktestVersion;

@@ -1,33 +1,40 @@
 import { ArrowLeft, Braces, Clock3, Database, FileQuestion, Loader2, Play, Terminal } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BrowserDuckDb } from "@/assets/lib/duckdb";
 import { queryApi } from "@/assets/lib/query";
+import { errorMessage } from "@/assets/lib/utils";
 import { workflowsApi } from "@/assets/lib/workflows";
 import DslEditor from "@/components/editor/DslEditor";
 import SqlEditor from "@/components/editor/SqlEditor";
-import QueryCodesField from "@/components/research/QueryCodesField";
-import RequestBodyDialog from "@/components/research/RequestBodyDialog";
-import TaskLogModal from "@/components/task/TaskLogModal";
-import WorkflowRunButton from "@/components/workflow/WorkflowRunButton";
-import SchedulerStateBadge from "@/components/scheduler/SchedulerStateBadge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import QueryCodesField from "@/components/field/QueryCodesField";
+import RequestBodyDialog from "@/components/modal/RequestBodyDialog";
+import DateRangeBar from "@/components/bar/DateRangeBar";
+import TaskLogModal from "@/components/modal/TaskLogModal";
+import WorkflowRunButton from "@/components/button/WorkflowRunButton";
+import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
+import { Button } from "@/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
+import { Switch } from "@/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
+import { useAppStore } from "@/store";
 import type { DslDocument, FactorQuery } from "@/types/factor";
 import { applyQueryDsl, defaultQueryParameters, queryDsl, type QueryCatalog, type QueryProject } from "@/types/query";
 import { terminalStates } from "@/types/workflow";
 
 const PREVIEW_LIMIT = 200;
+type QueryDatePoint = { time: string; value: number | null };
 
 export default function QueryDetailPage() {
   const projectId = Number(useParams().projectId);
   const navigate = useNavigate();
+  const theme = useAppStore((state) => state.theme);
+  const previewDatabase = useRef<BrowserDuckDb | null>(null);
+  const previewRequest = useRef(0);
   const [project, setProject] = useState<QueryProject | null>(null);
   const [projects, setProjects] = useState<QueryProject[]>([]);
   const [catalog, setCatalog] = useState<QueryCatalog | null>(null);
@@ -41,6 +48,9 @@ export default function QueryDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
+  const [previewPoints, setPreviewPoints] = useState<QueryDatePoint[]>([]);
+  const [previewStartDate, setPreviewStartDate] = useState("");
+  const [previewEndDate, setPreviewEndDate] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [loadedPreviewWorkflow, setLoadedPreviewWorkflow] = useState<number | null>(null);
@@ -90,6 +100,27 @@ export default function QueryDetailPage() {
     setSelectedSources((current) => new Set(current).add(projectId));
   }, [loadedPreviewWorkflow, projectId, workflowInstanceId, workflowState]);
 
+  useEffect(() => {
+    const database = previewDatabase.current;
+    if (!database || !previewStartDate || !previewEndDate || loadedPreviewWorkflow !== workflowInstanceId) return undefined;
+    let cancelled = false;
+    const request = ++previewRequest.current;
+    setPreviewLoading(true);
+    setPreviewRows([]);
+    database.rows(`SELECT * FROM read_parquet('current.parquet') WHERE CAST(time AS DATE) BETWEEN DATE ${sqlLiteral(previewStartDate)} AND DATE ${sqlLiteral(previewEndDate)} ORDER BY time LIMIT ${PREVIEW_LIMIT}`)
+      .then((rows) => { if (!cancelled && previewRequest.current === request) setPreviewRows(rows); })
+      .catch((reason) => { if (!cancelled && previewRequest.current === request) setPreviewError(errorMessage(reason)); })
+      .finally(() => { if (!cancelled && previewRequest.current === request) setPreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [loadedPreviewWorkflow, previewEndDate, previewStartDate, workflowInstanceId]);
+
+  useEffect(() => () => {
+    previewRequest.current += 1;
+    const database = previewDatabase.current;
+    previewDatabase.current = null;
+    database?.close().catch(() => undefined);
+  }, []);
+
   async function load() {
     setLoading(true);
     setError("");
@@ -116,7 +147,15 @@ export default function QueryDetailPage() {
     setStopping(false);
     setError("");
     setWorkflowError(null);
+    previewRequest.current += 1;
+    const database = previewDatabase.current;
+    previewDatabase.current = null;
+    database?.close().catch(() => undefined);
     setPreviewRows([]);
+    setPreviewPoints([]);
+    setPreviewStartDate("");
+    setPreviewEndDate("");
+    setPreviewLoading(false);
     setPreviewError("");
     setLoadedPreviewWorkflow(null);
     try {
@@ -165,14 +204,27 @@ export default function QueryDetailPage() {
   async function loadPreview(nextWorkflowInstanceId: number) {
     setPreviewLoading(true);
     setPreviewError("");
+    const request = ++previewRequest.current;
+    const previous = previewDatabase.current;
+    previewDatabase.current = null;
+    if (previous) await previous.close().catch(() => undefined);
+    let database: BrowserDuckDb | null = null;
     try {
       const buffer = await queryApi.output(nextWorkflowInstanceId, "data");
-      const database = await BrowserDuckDb.create({ "current.parquet": buffer });
-      try { setPreviewRows(await database.rows(`SELECT * FROM read_parquet('current.parquet') LIMIT ${PREVIEW_LIMIT}`)); }
-      finally { await database.close(); }
+      database = await BrowserDuckDb.create({ "current.parquet": buffer });
+      const rows = await database.rows("SELECT strftime(CAST(time AS DATE), '%Y-%m-%d') AS time, count(*) AS value FROM read_parquet('current.parquet') GROUP BY 1 ORDER BY 1");
+      if (previewRequest.current !== request) { await database.close(); return; }
+      const points = rows.map((row) => ({ time: String(row.time), value: numberValue(row.value) }));
+      previewDatabase.current = database;
+      database = null;
+      setPreviewPoints(points);
+      setPreviewStartDate(points[0]?.time ?? "");
+      setPreviewEndDate(points.at(-1)?.time ?? "");
       setLoadedPreviewWorkflow(nextWorkflowInstanceId);
-    } catch (reason) { setPreviewError(errorMessage(reason)); }
-    finally { setPreviewLoading(false); }
+      if (!points.length) setPreviewLoading(false);
+    } catch (reason) {
+      if (previewRequest.current === request) { setPreviewError(errorMessage(reason)); setPreviewLoading(false); }
+    } finally { if (database) await database.close().catch(() => undefined); }
   }
 
   async function runSql() {
@@ -213,7 +265,10 @@ export default function QueryDetailPage() {
       {error ? <ErrorMessage message={error} /> : null}
       {workflowError ? <ErrorMessage message={workflowError} /> : null}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsContent value="result"><ResultPanel loading={previewLoading} rows={previewRows} running={running} state={workflowState} error={previewError} /></TabsContent>
+        <TabsContent value="result"><div className="space-y-4">
+          <QueryResultDateRange endDate={previewEndDate} points={previewPoints} startDate={previewStartDate} theme={theme} onEndDate={setPreviewEndDate} onStartDate={setPreviewStartDate} />
+          <ResultPanel loading={previewLoading} rows={previewRows} running={running} state={workflowState} error={previewError} />
+        </div></TabsContent>
         <TabsContent value="sql"><div className="space-y-5">
           <Card className="py-0"><CardHeader className="border-b py-4"><CardTitle className="text-sm">数据源</CardTitle></CardHeader><CardContent className="divide-y p-0">{sourceProjects.length ? sourceProjects.map((source) => <label className="flex cursor-pointer items-center gap-4 px-5 py-3" key={source.id}><Switch checked={selectedSources.has(source.id)} onCheckedChange={(checked) => toggleSource(source.id, checked)} /><span className="min-w-0 flex-1 truncate text-sm font-medium">{source.title}</span><code className="text-xs text-muted-foreground">{tableName(source.id, projectId)}</code></label>) : <div className="px-5 py-8 text-center text-sm text-muted-foreground">暂无成功的查询结果</div>}</CardContent></Card>
           <div className="h-[360px]"><SqlEditor modelPath={`sql://query/${projectId}/secondary.sql`} tables={tableNames} value={sql} onChange={setSql} /></div>
@@ -236,14 +291,23 @@ function ResultPanel({ error, loading, rows, running, state }: { error: string; 
   return <EmptyPanel icon={FileQuestion} title="尚未执行查询" description="完成 DSL 后执行查询。" />;
 }
 
+function QueryResultDateRange({ endDate, onEndDate, onStartDate, points, startDate, theme }: { endDate: string; onEndDate: (value: string) => void; onStartDate: (value: string) => void; points: QueryDatePoint[]; startDate: string; theme: string }) {
+  if (!points.length) return null;
+  const minimumDate = points[0].time;
+  const maximumDate = points[points.length - 1].time;
+  return <DateRangeBar endDate={endDate} label="结果区间" maximumDate={maximumDate} minimumDate={minimumDate} points={points} startDate={startDate} theme={theme} onEndDate={(value) => onEndDate(value < startDate ? startDate : value)} onReset={() => { onStartDate(minimumDate); onEndDate(maximumDate); }} onStartDate={(value) => onStartDate(value > endDate ? endDate : value)} />;
+}
+
 function DataTable({ rows }: { rows: Record<string, unknown>[] }) {
   const columns = Object.keys(rows[0] ?? {});
-  return <Card className="overflow-hidden py-0"><CardContent className="max-h-[calc(100vh-12rem)] overflow-auto p-0"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow>{columns.map((column) => <TableHead className="min-w-32 whitespace-nowrap px-4" key={column}>{column}</TableHead>)}</TableRow></TableHeader><TableBody>{rows.map((row, index) => <TableRow key={index}>{columns.map((column) => <TableCell className="max-w-72 truncate whitespace-nowrap px-4 font-mono text-xs" key={column} title={cellValue(row[column])}>{cellValue(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></CardContent></Card>;
+  return <Card className="overflow-hidden py-0"><CardContent className="max-h-[calc(100vh-12rem)] overflow-auto p-0"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow>{columns.map((column) => <TableHead className="min-w-32 whitespace-nowrap px-4" key={column}>{column}</TableHead>)}</TableRow></TableHeader><TableBody>{rows.map((row, index) => <TableRow key={index}>{columns.map((column) => <TableCell className="max-w-72 truncate whitespace-nowrap px-4 font-mono text-xs" key={column} title={cellValue(column, row[column])}>{cellValue(column, row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></CardContent></Card>;
 }
 
 function EmptyPanel({ description, icon: Icon, iconClassName = "", title }: { description: string; icon: typeof Database; iconClassName?: string; title: string }) { return <div className="grid min-h-80 place-items-center rounded-md border bg-card text-center shadow-sm"><div><Icon className={`mx-auto size-6 text-muted-foreground ${iconClassName}`} /><h3 className="mt-4 font-semibold">{title}</h3><p className="mt-2 text-sm text-muted-foreground">{description}</p></div></div>; }
 function ErrorMessage({ message }: { message: string }) { return <div className="mb-5 rounded-md border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">{message}</div>; }
 function QueryField({ label, onChange, type = "text", value }: { label: string; onChange: (value: string) => void; type?: string; value: string }) { return <div className="space-y-2"><Label>{label}</Label><Input type={type} value={value} onChange={(event) => onChange(event.target.value)} /></div>; }
 function tableName(id: number, currentId: number) { return id === currentId ? "current_result" : `query_${id}`; }
-function cellValue(value: unknown): string { if (value === null || value === undefined) return "NULL"; if (value instanceof Date) return value.toLocaleString("zh-CN"); if (typeof value === "object") return JSON.stringify(value); return String(value); }
-function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : String(reason); }
+function cellValue(column: string, value: unknown): string { if (value === null || value === undefined) return "NULL"; if (column.toLowerCase() === "time") return dateValue(value); if (value instanceof Date) return value.toLocaleString("zh-CN"); if (typeof value === "object") return JSON.stringify(value); return String(value); }
+function dateValue(value: unknown) { if (value instanceof Date) return value.toISOString().slice(0, 10); if (typeof value === "number" || typeof value === "bigint" || typeof value === "string" && /^\d+$/.test(value)) { const timestamp = Number(value); const date = new Date(timestamp > 10_000_000_000_000 ? timestamp / 1000 : timestamp); if (!Number.isNaN(date.getTime())) return date.toISOString().slice(0, 10); } return String(value).slice(0, 10); }
+function numberValue(value: unknown) { const result = Number(value); return Number.isFinite(result) ? result : null; }
+function sqlLiteral(value: string) { return `'${value.replace(/'/g, "''")}'`; }

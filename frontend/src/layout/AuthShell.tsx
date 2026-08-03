@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import IconMoon from "~icons/lucide/moon";
 import IconSun from "~icons/lucide/sun";
 
-import { BrandMark } from "@/components/auth/BrandMark";
-import { SignalChart } from "@/components/auth/SignalChart";
+import { BrandMark } from "@/components/mark/BrandMark";
+import { SignalChart } from "@/components/chart/SignalChart";
 import { useAppStore } from "@/store";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 
 type AuthShellProps = {
   mode: AuthMode | "session";

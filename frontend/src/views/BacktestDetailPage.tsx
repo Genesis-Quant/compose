@@ -3,16 +3,17 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { backtestApi } from "@/assets/lib/backtest";
+import { errorMessage } from "@/assets/lib/utils";
 import { workflowsApi } from "@/assets/lib/workflows";
 import BacktestEditor from "@/components/editor/BacktestEditor";
-import BacktestReport from "@/components/report/BacktestReport";
-import RequestBodyDialog from "@/components/research/RequestBodyDialog";
-import SaveVersionDialog from "@/components/research/SaveVersionDialog";
-import VersionCompareDialog from "@/components/research/VersionCompareDialog";
-import VersionNavigator from "@/components/research/VersionNavigator";
-import TaskLogModal from "@/components/task/TaskLogModal";
-import WorkflowRunButton from "@/components/workflow/WorkflowRunButton";
-import { Button } from "@/components/ui/button";
+import BacktestReport from "@/components/panel/BacktestReport";
+import RequestBodyDialog from "@/components/modal/RequestBodyDialog";
+import SaveVersionDialog from "@/components/modal/SaveVersionDialog";
+import VersionCompareDialog from "@/components/modal/VersionCompareDialog";
+import VersionNavigator from "@/components/bar/VersionNavigator";
+import TaskLogModal from "@/components/modal/TaskLogModal";
+import WorkflowRunButton from "@/components/button/WorkflowRunButton";
+import { Button } from "@/ui/button";
 import { defaultBacktestParameters, type BacktestParameters, type BacktestProject, type BacktestSummary, type BacktestVersion } from "@/types/backtest";
 import type { DslCatalog } from "@/types/factor";
 import { terminalStates } from "@/types/workflow";
@@ -229,4 +230,3 @@ function BacktestResults({ annualTradingDays, displayedState, displayedWorkflowI
 }
 
 function validBacktestContract(parameters: BacktestParameters) { return parameters.codes_query !== null && parameters.dataset_query.start_date.length > 0 && parameters.dataset_query.end_date.length > 0 && parameters.dataset_query.factors.length + Object.keys(parameters.dataset_query.derivatives).length > 0 && Object.keys(parameters.callbacks).length > 0; }
-function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : String(reason); }
