@@ -1,25 +1,27 @@
-import { Activity, Clock3, Eye, Loader2, RefreshCw, Server, Square, Terminal, Workflow } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, ChevronDown, ChevronUp, Clock3, Eye, Loader2, RefreshCw, Square, Terminal, Workflow } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { tasksApi } from "@/assets/lib/tasks";
 import { AppPagination } from "@/components/AppPagination";
 import { PageHero } from "@/components/PageHero";
 import TaskDetailsModal from "@/components/task/TaskDetailsModal";
 import TaskLogModal from "@/components/task/TaskLogModal";
-import TaskStateBadge from "@/components/task/TaskStateBadge";
+import TaskStateBadge, { taskStateLabel } from "@/components/task/TaskStateBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAppStore } from "@/store";
 import { terminalStates, type TaskApplication, type TaskListItem, type TaskListPage } from "@/types/task";
 
 const PAGE_SIZE = 20;
-const applicationNames = { query: "Query", factor: "Factor", backtest: "Backtest" } as const;
+const applicationNames = { query: "Query", factor: "Factor", backtest: "Backtest", incremental: "Incremental" } as const;
 type StateFilter = "all" | "active" | "success" | "failure";
 
 export default function TasksPage() {
+  const isAdmin = useAppStore((store) => store.user?.is_admin ?? false);
   const [result, setResult] = useState<TaskListPage | null>(null);
   const [page, setPage] = useState(1);
   const [application, setApplication] = useState<"all" | TaskApplication>("all");
@@ -78,20 +80,20 @@ export default function TasksPage() {
   }
 
   return <div className="space-y-6">
-    <PageHero chips={["统一状态", "日志追踪", "自动刷新"]} description="统一查看 Query、Factor 和 Backtest 的执行状态、调度信息与运行日志。" eyebrow="TASKS" icon={Workflow} stat={{ label: "筛选结果", value: result?.total ?? 0 }} title="任务管理" variant="analysis" />
+    <PageHero chips={["统一状态", "日志追踪", "自动刷新"]} description="统一查看 Query、Factor、Backtest 和 Incremental Update 的执行状态、调度信息与运行日志。" eyebrow="TASKS" icon={Workflow} stat={{ label: "筛选结果", value: result?.total ?? 0 }} title="任务管理" variant="analysis" />
 
     {error ? <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div> : null}
 
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="flex flex-wrap items-end gap-3"><Filter label="应用"><Select value={application} onValueChange={changeApplication}><SelectTrigger className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部应用</SelectItem><SelectItem value="query">Query</SelectItem><SelectItem value="factor">Factor</SelectItem><SelectItem value="backtest">Backtest</SelectItem></SelectContent></Select></Filter><Filter label="状态"><Select value={state} onValueChange={changeState}><SelectTrigger className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="active">运行中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="failure">失败</SelectItem></SelectContent></Select></Filter></div><div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">运行任务每 5 秒自动更新</span><Button variant="outline" disabled={refreshing} onClick={() => load(true)}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button></div></div>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="flex flex-wrap items-end gap-3"><Filter label="应用"><Select value={application} onValueChange={changeApplication}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部应用</SelectItem><SelectItem value="query">Query</SelectItem><SelectItem value="factor">Factor</SelectItem><SelectItem value="backtest">Backtest</SelectItem><SelectItem value="incremental">Incremental</SelectItem></SelectContent></Select></Filter><Filter label="状态"><Select value={state} onValueChange={changeState}><SelectTrigger className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="active">运行中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="failure">失败</SelectItem></SelectContent></Select></Filter></div><div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">运行任务每 5 秒自动更新</span><Button variant="outline" disabled={refreshing} onClick={() => load(true)}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button></div></div>
 
     <Card className="gap-0 py-0 shadow-sm">
       <CardContent className="p-0">
         <Table>
-          <TableHeader><TableRow><TableHead className="w-28 px-4">任务 ID</TableHead><TableHead className="w-28">应用</TableHead><TableHead className="w-40">状态</TableHead><TableHead>工作流 / 进程</TableHead><TableHead className="w-40">执行节点</TableHead><TableHead className="w-44">开始时间</TableHead><TableHead className="w-24 text-right">耗时</TableHead><TableHead className="w-48 px-4 text-right">操作</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead className="w-28 px-4">任务 ID</TableHead>{isAdmin ? <TableHead className="w-32">用户</TableHead> : null}<TableHead className="w-28">应用</TableHead><TableHead className="w-40">状态</TableHead><TableHead>工作流 / 进程</TableHead><TableHead className="min-w-96">工作流任务</TableHead><TableHead className="w-36">开始时间</TableHead><TableHead className="w-24 text-right">耗时</TableHead><TableHead className="w-24 px-4 text-right">操作</TableHead></TableRow></TableHeader>
           <TableBody>
-            {result?.items.map((task) => <TaskRow key={`${task.application}-${task.record_id}`} stopping={stoppingTaskId === task.task_id} task={task} onDetails={() => setDetailsTask(task)} onLogs={() => setLogTaskId(task.task_id)} onStop={() => task.task_id && stopTask(task.task_id)} />)}
-            {loading ? <TaskTableState><Loader2 className="animate-spin" />正在读取任务...</TaskTableState> : null}
-            {!loading && !result?.items.length ? <TaskTableState><Activity />当前筛选下暂无任务</TaskTableState> : null}
+            {result?.items.map((task) => <TaskRow key={`${task.application}-${task.record_id}`} showOwner={isAdmin} stopping={stoppingTaskId === task.task_id} task={task} onDetails={() => setDetailsTask(task)} onLogs={setLogTaskId} onStop={() => task.task_id && stopTask(task.task_id)} />)}
+            {loading ? <TaskTableState colSpan={isAdmin ? 9 : 8}><Loader2 className="animate-spin" />正在读取任务...</TaskTableState> : null}
+            {!loading && !result?.items.length ? <TaskTableState colSpan={isAdmin ? 9 : 8}><Activity />当前筛选下暂无任务</TaskTableState> : null}
           </TableBody>
         </Table>
       </CardContent>
@@ -106,11 +108,56 @@ export default function TasksPage() {
 
 function Filter({ children, label }: { children: React.ReactNode; label: string }) { return <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">{label}</Label>{children}</div>; }
 
-function TaskRow({ onDetails, onLogs, onStop, stopping, task }: { onDetails: () => void; onLogs: () => void; onStop: () => void; stopping: boolean; task: TaskListItem }) {
+function TaskRow({ onDetails, onLogs, onStop, showOwner, stopping, task }: { onDetails: () => void; onLogs: (taskId: number) => void; onStop: () => void; showOwner: boolean; stopping: boolean; task: TaskListItem }) {
   const active = task.task_id !== null && !terminalStates.has(task.state);
-  return <TableRow><TableCell className="px-4 font-mono text-xs font-semibold">{task.task_id ?? <span className="text-muted-foreground">等待调度</span>}</TableCell><TableCell><Badge variant="secondary" className="font-mono uppercase">{applicationNames[task.application]}</Badge></TableCell><TableCell><TaskStateBadge state={task.state} /></TableCell><TableCell><div className="max-w-72 truncate text-xs font-medium">{task.workflow_name ?? "等待调度"}</div><div className="mt-1 truncate font-mono text-[10px] text-muted-foreground">Process #{task.process_instance_id ?? "—"} · Record #{task.record_id}</div></TableCell><TableCell><div className="flex items-center gap-2 truncate font-mono text-xs text-muted-foreground"><Server className="size-3.5 shrink-0" />{task.host ?? "—"}</div></TableCell><TableCell><div className="font-mono text-xs">{formatDate(task.started_at ?? task.created_at)}</div><div className="mt-1 text-[10px] text-muted-foreground">{task.started_at ? "开始执行" : "创建时间"}</div></TableCell><TableCell className="text-right"><span className="inline-flex items-center gap-1.5 font-mono text-xs"><Clock3 className="size-3 text-muted-foreground" />{formatDuration(task.duration_seconds)}</span></TableCell><TableCell className="px-4"><div className="flex justify-end gap-1">{active ? <Button size="sm" variant="destructive" disabled={stopping} onClick={onStop}>{stopping ? <Loader2 className="animate-spin" /> : <Square />}{stopping ? "终止中" : "终止"}</Button> : null}<Button title="查看详情" aria-label="查看任务详情" size="icon-sm" variant="ghost" onClick={onDetails}><Eye /></Button><Button title="查看日志" aria-label="查看任务日志" size="icon-sm" variant="ghost" disabled={!task.task_id} onClick={onLogs}><Terminal /></Button></div></TableCell></TableRow>;
+  return <TableRow><TableCell className="px-4 font-mono text-xs font-semibold">{task.task_id ?? <span className="text-muted-foreground">等待调度</span>}</TableCell>{showOwner ? <TableCell><div className="truncate text-xs font-medium">{task.owner_username}</div><div className="mt-1 font-mono text-[10px] text-muted-foreground">User #{task.user_id}</div></TableCell> : null}<TableCell><Badge variant="secondary" className="font-mono uppercase">{applicationNames[task.application]}</Badge></TableCell><TableCell><TaskStateBadge state={task.state} /></TableCell><TableCell><div className="max-w-72 truncate text-xs font-medium">{task.workflow_name ?? "等待调度"}</div><div className="mt-1 truncate font-mono text-[10px] text-muted-foreground">Process #{task.process_instance_id ?? "—"} · Record #{task.record_id}</div></TableCell><TableCell><WorkflowTaskCapsules tasks={task.workflow_tasks} onLogs={onLogs} /></TableCell><TableCell><TaskStartTime value={task.started_at ?? task.created_at} /></TableCell><TableCell className="text-right"><span className="inline-flex items-center gap-1.5 font-mono text-xs"><Clock3 className="size-3 text-muted-foreground" />{formatDuration(task.duration_seconds)}</span></TableCell><TableCell className="px-4"><div className="flex justify-end gap-1">{active ? <Button title={stopping ? "正在终止任务" : "终止任务"} aria-label={stopping ? "正在终止任务" : "终止任务"} size="icon-sm" variant="destructive" disabled={stopping} onClick={onStop}>{stopping ? <Loader2 className="animate-spin" /> : <Square />}</Button> : null}<Button title="查看详情" aria-label="查看任务详情" size="icon-sm" variant="ghost" onClick={onDetails}><Eye /></Button></div></TableCell></TableRow>;
 }
 
-function TaskTableState({ children }: { children: React.ReactNode }) { return <TableRow><TableCell colSpan={8}><div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">{children}</div></TableCell></TableRow>; }
-function formatDate(value: string) { return new Date(value).toLocaleString("zh-CN", { hour12: false }); }
+function WorkflowTaskCapsules({ onLogs, tasks }: { onLogs: (taskId: number) => void; tasks: TaskListItem["workflow_tasks"] }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [collapsedHeight, setCollapsedHeight] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) return undefined;
+
+    const measure = () => {
+      const capsules = Array.from(content.children) as HTMLElement[];
+      const rowTops = [...new Set(capsules.map((capsule) => capsule.offsetTop))].sort((a, b) => a - b);
+      if (rowTops.length <= 2) {
+        setCollapsedHeight(null);
+        setExpanded(false);
+        return;
+      }
+      const secondRowTop = rowTops[1];
+      const secondRowBottom = Math.max(...capsules.filter((capsule) => capsule.offsetTop === secondRowTop).map((capsule) => capsule.offsetTop + capsule.offsetHeight));
+      setCollapsedHeight(secondRowBottom);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [tasks]);
+
+  if (!tasks.length) return <span className="text-xs text-muted-foreground">等待工作流任务</span>;
+  const collapsible = collapsedHeight !== null;
+  return <div className="max-w-[36rem]">
+    <div className="overflow-hidden" style={!expanded && collapsible ? { maxHeight: collapsedHeight } : undefined}>
+      <div ref={contentRef} className="flex flex-wrap gap-1.5 whitespace-normal">{tasks.map((item, index) => <TaskStateBadge className="max-w-56" key={item.task_code ?? item.task_id ?? `${item.name}-${index}`} label={<><span className="truncate">{item.name}</span><span className="opacity-70">{taskStateLabel(item.state)}</span>{item.task_id !== null && item.state !== "SUBMITTED_SUCCESS" ? <button aria-label={`查看 ${item.name} 日志`} className="-mr-1 ml-0.5 grid size-5 shrink-0 place-items-center rounded-full opacity-70 transition hover:bg-background/60 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="查看日志" type="button" onClick={() => onLogs(item.task_id!)}><Terminal className="size-3" /></button> : null}</>} state={item.state} title={`${item.name} · ${item.task_id === null ? "未调度" : `Task #${item.task_id}`} · ${item.state}`} />)}</div>
+    </div>
+    {collapsible ? <Button aria-expanded={expanded} className="mt-1 h-6 gap-1 px-1.5 text-[11px] text-muted-foreground" size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>{expanded ? <><ChevronUp className="size-3" />收起</> : <><ChevronDown className="size-3" />展开</>}</Button> : null}
+  </div>;
+}
+
+function TaskTableState({ children, colSpan }: { children: React.ReactNode; colSpan: number }) { return <TableRow><TableCell colSpan={colSpan}><div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">{children}</div></TableCell></TableRow>; }
+function TaskStartTime({ value }: { value: string }) {
+  const date = new Date(value);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return <div className="font-mono text-xs">{sameYear ? null : <div>{day}</div>}<div className={sameYear ? "" : "mt-1"}>{time}</div></div>;
+}
+function pad(value: number) { return String(value).padStart(2, "0"); }
 function formatDuration(seconds: number | null) { if (seconds === null) return "—"; if (seconds < 60) return `${seconds.toFixed(1)}s`; const minutes = Math.floor(seconds / 60); return `${minutes}m ${Math.round(seconds % 60)}s`; }

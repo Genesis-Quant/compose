@@ -17,11 +17,13 @@ const BacktestDetailPage = lazy(() => import("@/views/BacktestDetailPage"));
 const ProfilePage = lazy(() => import("@/views/ProfilePage"));
 const RegisterPage = lazy(() => import("@/views/RegisterPage"));
 const TasksPage = lazy(() => import("@/views/TasksPage"));
+const AdminPage = lazy(() => import("@/views/AdminPage"));
 
 export default function App() {
   const location = useLocation();
   const authStatus = useAppStore((state) => state.authStatus);
   const restoreSession = useAppStore((state) => state.restoreSession);
+  const user = useAppStore((state) => state.user);
   const authenticated = authStatus === "authenticated";
 
   useEffect(() => { restoreSession(); }, [restoreSession]);
@@ -42,6 +44,7 @@ export default function App() {
             <Route path="/backtest" element={<BacktestPage />} />
             <Route path="/backtest/projects/:projectId" element={<BacktestDetailPage />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/admin" element={user?.is_admin ? <AdminPage /> : <Navigate to="/" replace />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<Navigate to={authenticated ? "/" : "/login"} replace />} />

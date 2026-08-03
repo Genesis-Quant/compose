@@ -10,10 +10,10 @@ import { tasksApi } from "@/assets/lib/tasks";
 import TaskStateBadge from "@/components/task/TaskStateBadge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { terminalStates, type TaskStatus } from "@/types/task";
+import { terminalStates, type TaskStatus, type WorkflowTaskInformation } from "@/types/task";
 
 const PAGE_SIZE = 500;
-const applicationNames = { query: "QUERY", factor: "FACTOR", backtest: "BACKTEST" } as const;
+const applicationNames = { query: "QUERY", factor: "FACTOR", backtest: "BACKTEST", incremental: "INCREMENTAL" } as const;
 
 type TaskLogModalProps = {
   open: boolean;
@@ -32,6 +32,9 @@ export default function TaskLogModal({ onOpenChange, open, taskId }: TaskLogModa
   const nextLineRef = useRef(0);
   const hasMoreRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const taskIdRef = useRef(taskId);
+  taskIdRef.current = taskId;
+  const activeTask = status?.workflow_tasks.find((task) => task.task_id === taskId);
 
   const loadStatus = useCallback(async () => {
     if (!taskId) return null;
@@ -42,9 +45,11 @@ export default function TaskLogModal({ onOpenChange, open, taskId }: TaskLogModa
 
   const loadLogs = useCallback(async (reset: boolean, background = false) => {
     if (!taskId) return;
+    const requestedTaskId = taskId;
     if (!background) reset ? setLoading(true) : setLoadingMore(true);
     try {
-      const result = await tasksApi.logs(taskId, reset ? 0 : nextLineRef.current, PAGE_SIZE);
+      const result = await tasksApi.logs(requestedTaskId, reset ? 0 : nextLineRef.current, PAGE_SIZE);
+      if (taskIdRef.current !== requestedTaskId) return;
       setMessage((current) => reset ? result.message : current + result.message);
       nextLineRef.current = result.next_line_num;
       hasMoreRef.current = result.has_more;
@@ -69,8 +74,11 @@ export default function TaskLogModal({ onOpenChange, open, taskId }: TaskLogModa
   }, [loadLogs, loadStatus, taskId]);
 
   useEffect(() => {
-    if (!open || !taskId) return;
     setStatus(null);
+  }, [open, taskId]);
+
+  useEffect(() => {
+    if (!open || !taskId) return;
     setMessage("");
     setNextLine(0);
     setHasMore(false);
@@ -85,7 +93,8 @@ export default function TaskLogModal({ onOpenChange, open, taskId }: TaskLogModa
       try {
         const result = await loadStatus();
         if (!hasMoreRef.current) await loadLogs(false, true);
-        if (result && terminalStates.has(result.state)) window.clearInterval(timer);
+        const selectedState = result?.workflow_tasks.find((task) => task.task_id === taskId)?.state ?? result?.state;
+        if (selectedState && terminalStates.has(selectedState)) window.clearInterval(timer);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : String(reason));
       }
@@ -112,21 +121,21 @@ export default function TaskLogModal({ onOpenChange, open, taskId }: TaskLogModa
           <div className="min-w-0">
             <div className="flex items-center gap-2.5">
               <span className="grid size-8 place-items-center rounded-md border bg-muted/40"><IconTerminal width={15} height={15} /></span>
-              <div><DialogTitle className="text-base">任务日志</DialogTitle><DialogDescription className="mt-0.5 font-mono text-[11px]">DolphinScheduler 任务 #{taskId ?? "—"}</DialogDescription></div>
+              <div><DialogTitle className="text-base">任务日志</DialogTitle><DialogDescription className="mt-0.5 font-mono text-[11px]">DolphinScheduler 任务 #{formatTaskId(taskId)}</DialogDescription></div>
             </div>
           </div>
           <Button disabled={loading || !taskId} size="sm" variant="outline" onClick={refresh}>{loading ? <IconLoaderCircle className="animate-spin" /> : <IconRefreshCw />}刷新</Button>
         </DialogHeader>
 
         <div className="grid grid-cols-2 border-b bg-muted/15 sm:grid-cols-4">
-          <TaskMeta icon={<IconActivity width={13} height={13} />} label="状态" value={<TaskStateBadge state={status?.state ?? "LOADING"} />} />
+          <TaskMeta icon={<IconActivity width={13} height={13} />} label="状态" value={<TaskStateBadge state={resolveTaskState(activeTask, status)} />} />
           <TaskMeta icon={<IconTerminal width={13} height={13} />} label="应用" value={status ? applicationNames[status.application] : "—"} />
           <TaskMeta icon={<IconServer width={13} height={13} />} label="节点" value={status?.host ?? "—"} />
           <TaskMeta icon={<IconClock3 width={13} height={13} />} label="耗时" value={formatDuration(status?.duration_seconds)} />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col bg-muted/20 text-foreground">
-          <div className="flex items-center justify-between border-b px-4 py-2 font-mono text-[10px] tracking-[0.1em] text-muted-foreground"><span>{status?.workflow_name ?? "TASK"} / {taskId ?? "—"}</span><span>{nextLine.toLocaleString()} LINES</span></div>
+          <div className="flex items-center justify-between border-b px-4 py-2 font-mono text-[10px] tracking-[0.1em] text-muted-foreground"><span>{resolveTaskName(activeTask, status)} / {formatTaskId(taskId)}</span><span>{nextLine.toLocaleString()} LINES</span></div>
           <div className="min-h-0 flex-1 overflow-auto" ref={logRef}>
             {loading && !message ? <div className="grid min-h-72 place-items-center"><IconLoaderCircle className="animate-spin text-muted-foreground" width={20} height={20} /></div> : <pre className="m-0 min-h-72 whitespace-pre-wrap break-words p-5 font-mono text-[11px] leading-5">{message || (error ? "" : "暂无日志")}</pre>}
           </div>
@@ -136,6 +145,10 @@ export default function TaskLogModal({ onOpenChange, open, taskId }: TaskLogModa
       </DialogContent>
   </Dialog>;
 }
+
+function resolveTaskState(task: WorkflowTaskInformation | undefined, status: TaskStatus | null) { return task?.state ?? status?.state ?? "LOADING"; }
+function resolveTaskName(task: WorkflowTaskInformation | undefined, status: TaskStatus | null) { return task?.name ?? status?.workflow_name ?? "TASK"; }
+function formatTaskId(taskId: number | null) { return taskId ?? "—"; }
 
 function TaskMeta({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return <div className="min-w-0 border-r border-t px-4 py-3 first:border-t-0 sm:border-t-0"><div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">{icon}{label}</div><div className="mt-1.5 truncate font-mono text-xs font-medium">{value}</div></div>;

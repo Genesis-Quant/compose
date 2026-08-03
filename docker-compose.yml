@@ -4,18 +4,20 @@ x-arena-env: &arena-env
   - ./.env
   - ./.env.prod
 
-x-arena-shared: &arena-shared
-  type: bind
-  source: ${ARENA_SHARED_DIR:?ARENA_SHARED_DIR is required}
-  target: /shared
+x-dolphinscheduler-environment: &dolphinscheduler-environment
+  DATABASE: postgresql
+  SPRING_PROFILES_ACTIVE: postgresql
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+  SPRING_DATASOURCE_URL: jdbc:postgresql://${PGSQL_HOST:?PGSQL_HOST is required}:${PGSQL_PORT:?PGSQL_PORT is required}/${DOLPHINSCHEDULER_DATABASE:?DOLPHINSCHEDULER_DATABASE is required}
+  SPRING_DATASOURCE_USERNAME: ${PGSQL_USER:?PGSQL_USER is required}
+  SPRING_DATASOURCE_PASSWORD: ${PGSQL_PASSWORD:?PGSQL_PASSWORD is required}
 
 services:
   dolphinscheduler-schema-initializer:
     image: apache/dolphinscheduler-tools:3.2.2
     restart: "no"
     env_file: *arena-env
-    environment:
-      DATABASE: postgresql
+    environment: *dolphinscheduler-environment
     command: ["tools/bin/upgrade-schema.sh"]
 
   dolphinscheduler-standalone:
@@ -25,12 +27,11 @@ services:
       dockerfile: Dockerfile.standalone
     restart: unless-stopped
     environment:
+      <<: *dolphinscheduler-environment
       TZ: Asia/Shanghai
-      DATABASE: postgresql
-      SPRING_PROFILES_ACTIVE: postgresql
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
       SPRING_JACKSON_TIME_ZONE: UTC
       API_PYTHON_GATEWAY_ENABLED: "true"
+      API_PYTHON_GATEWAY_AUTH_TOKEN: ${DOLPHINSCHEDULER_PYTHON_GATEWAY_TOKEN:?DOLPHINSCHEDULER_PYTHON_GATEWAY_TOKEN is required}
       MASTER_SERVER_LOAD_PROTECTION_ENABLED: "false"
       WORKER_SERVER_LOAD_PROTECTION_ENABLED: "false"
       WORKER_TENANT_CONFIG_DEFAULT_TENANT_ENABLED: "true"
@@ -48,8 +49,8 @@ services:
       dolphinscheduler-schema-initializer:
         condition: service_completed_successfully
     volumes:
-      - *arena-shared
-      - D:/Docker/dolphinscheduler/resources:/tmp/dolphinscheduler
+      - arena-shared:/shared
+      - dolphinscheduler-resources:/tmp/dolphinscheduler
       - dolphinscheduler-logs:/opt/dolphinscheduler/logs
 
   backend:
@@ -86,12 +87,15 @@ services:
       dolphinscheduler-standalone:
         condition: service_healthy
     volumes:
-      - *arena-shared
-      - ./backend/core:/workspace/backend/core
-      - ./backend/config.py:/workspace/backend/config.py
-      - ./backend/alembic:/workspace/backend/alembic
-      - ./backend/main.py:/workspace/backend/main.py
-      - ./backend/alembic.ini:/workspace/backend/alembic.ini
+      - arena-shared:/shared
+      - ./backend:/workspace/backend
 
 volumes:
+  arena-shared:
   dolphinscheduler-logs:
+  dolphinscheduler-resources:
+
+networks:
+  default:
+    name: ${COMPOSE_NETWORK_NAME:-arena-network}
+    external: true

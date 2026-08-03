@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from "@/components/ui/separator";
 import type { TaskListItem } from "@/types/task";
 
-const applicationNames = { query: "Query", factor: "Factor", backtest: "Backtest" } as const;
+const applicationNames = { query: "Query", factor: "Factor", backtest: "Backtest", incremental: "Incremental" } as const;
 
 export default function TaskDetailsModal({ onOpenChange, open, task }: { onOpenChange: (open: boolean) => void; open: boolean; task: TaskListItem | null }) {
   return <Dialog open={open} onOpenChange={onOpenChange}>

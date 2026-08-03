@@ -1,12 +1,22 @@
-export type TaskApplication = "query" | "factor" | "backtest";
+export type TaskApplication = "query" | "factor" | "backtest" | "incremental";
+
+export type WorkflowTaskInformation = {
+  task_code: number | null;
+  task_id: number | null;
+  name: string;
+  task_type: string | null;
+  state: string;
+};
 
 export type TaskInformation = {
   application: TaskApplication;
   record_id: number;
+  user_id: number;
   task_id: number | null;
   task_id_history: number[];
   process_instance_id: number | null;
   process_instance_history: number[];
+  workflow_tasks: WorkflowTaskInformation[];
   project_code: number | null;
   process_definition_code: number | null;
   workflow_name: string | null;
@@ -37,6 +47,7 @@ export type TaskActionResponse = {
 };
 
 export type TaskListItem = TaskInformation & {
+  owner_username: string;
   payload: Record<string, unknown>;
   requested_outputs: string[];
 };
