@@ -5,7 +5,7 @@ import IconSun from "~icons/lucide/sun";
 import { BrandMark } from "@/components/auth/BrandMark";
 import { SignalChart } from "@/components/auth/SignalChart";
 import { useAppStore } from "@/store";
-import { Button } from "@/ui/button";
+import { Button } from "@/components/ui/button";
 
 type AuthShellProps = {
   mode: AuthMode | "session";

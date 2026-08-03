@@ -52,6 +52,8 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
           const normalized = id.replace(/\\/g, "/");
+          if (normalized.includes("/node_modules/@duckdb/")) return "vendor-duckdb";
+          if (normalized.includes("/node_modules/echarts/")) return "vendor-echarts";
           if (normalized.includes("/node_modules/react") || normalized.includes("/node_modules/react-dom") || normalized.includes("/node_modules/react-router")) return "vendor-react";
           if (normalized.includes("/node_modules/radix-ui") || normalized.includes("/node_modules/@radix-ui")) return "vendor-radix";
           if (normalized.includes("/node_modules/motion")) return "vendor-motion";

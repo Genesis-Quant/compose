@@ -6,7 +6,7 @@ import IconShieldCheck from "~icons/lucide/shield-check";
 
 import { MotionPage } from "@/layout/MotionPage";
 import { useAppStore } from "@/store";
-import { Button } from "@/ui/button";
+import { Button } from "@/components/ui/button";
 
 export default function ProfilePage() {
   const user = useAppStore((state) => state.user);

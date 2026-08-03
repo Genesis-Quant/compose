@@ -6,7 +6,7 @@ const instance = axios.create({ baseURL: apiUrl, timeout: 15000 });
 const inflight = new Map<string, Promise<unknown>>();
 
 function requestKey(config: AxiosRequestConfig) {
-  return JSON.stringify({ method: config.method || "GET", url: config.url, params: config.params || null, data: config.data || null });
+  return JSON.stringify({ method: config.method || "GET", url: config.url, params: config.params || null, data: config.data || null, responseType: config.responseType || null });
 }
 
 export async function request<T>(config: AxiosRequestConfig): Promise<T> {
@@ -38,5 +38,8 @@ function errorMessage(error: unknown) {
 
 export const client = {
   get: <T>(url: string, config: AxiosRequestConfig = {}) => request<T>({ ...config, method: "GET", url }),
-  post: <T>(url: string, data: unknown, config: AxiosRequestConfig = {}) => request<T>({ ...config, method: "POST", url, data })
+  getBinary: (url: string) => request<ArrayBuffer>({ method: "GET", url, responseType: "arraybuffer", timeout: 120000 }),
+  post: <T>(url: string, data: unknown, config: AxiosRequestConfig = {}) => request<T>({ ...config, method: "POST", url, data }),
+  patch: <T>(url: string, data: unknown, config: AxiosRequestConfig = {}) => request<T>({ ...config, method: "PATCH", url, data }),
+  delete: <T>(url: string, config: AxiosRequestConfig = {}) => request<T>({ ...config, method: "DELETE", url })
 };

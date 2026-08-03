@@ -8,8 +8,15 @@ import { useAppStore } from "@/store";
 const LoginPage = lazy(() => import("@/views/LoginPage"));
 const AppLayout = lazy(() => import("@/layout/AppLayout"));
 const HomePage = lazy(() => import("@/views/HomePage"));
+const QueryPage = lazy(() => import("@/views/QueryPage"));
+const QueryDetailPage = lazy(() => import("@/views/QueryDetailPage"));
+const FactorAnalysisPage = lazy(() => import("@/views/FactorAnalysisPage"));
+const FactorAnalysisDetailPage = lazy(() => import("@/views/FactorAnalysisDetailPage"));
+const BacktestPage = lazy(() => import("@/views/BacktestPage"));
+const BacktestDetailPage = lazy(() => import("@/views/BacktestDetailPage"));
 const ProfilePage = lazy(() => import("@/views/ProfilePage"));
 const RegisterPage = lazy(() => import("@/views/RegisterPage"));
+const TasksPage = lazy(() => import("@/views/TasksPage"));
 
 export default function App() {
   const location = useLocation();
@@ -28,6 +35,13 @@ export default function App() {
           <Route path="/register" element={authenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
           <Route element={authenticated ? <AppLayout /> : <Navigate to="/login" replace />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/query" element={<QueryPage />} />
+            <Route path="/query/projects/:projectId" element={<QueryDetailPage />} />
+            <Route path="/factor" element={<FactorAnalysisPage />} />
+            <Route path="/factor/projects/:projectId" element={<FactorAnalysisDetailPage />} />
+            <Route path="/backtest" element={<BacktestPage />} />
+            <Route path="/backtest/projects/:projectId" element={<BacktestDetailPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<Navigate to={authenticated ? "/" : "/login"} replace />} />

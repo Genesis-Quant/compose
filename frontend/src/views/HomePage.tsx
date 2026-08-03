@@ -12,7 +12,7 @@ import IconGitBranch from "~icons/lucide/git-branch";
 import IconRadar from "~icons/lucide/radar";
 import IconRoute from "~icons/lucide/route";
 
-import { Button } from "@/ui/button";
+import { Button } from "@/components/ui/button";
 
 type IconComponent = ComponentType<{ className?: string; width?: number; height?: number }>;
 
@@ -149,7 +149,7 @@ function MarketTape() {
 }
 
 function CarouselControls({ activeIndex, onSelect }: { activeIndex: number; onSelect: (index: number) => void }) {
-  return <div className="flex shrink-0 items-center gap-3"><Button className="border-white/20 bg-black/20 text-white hover:bg-white/10" size="icon" variant="outline" onClick={() => onSelect(activeIndex - 1)} aria-label="上一项研究"><IconChevronLeft width={17} height={17} /></Button><div className="flex items-center gap-2">{researchSlides.map((slide, index) => <button className={index === activeIndex ? "h-1 w-8 bg-white transition-all" : "h-1 w-4 bg-white/30 transition-all hover:bg-white/60"} key={slide.id} type="button" onClick={() => onSelect(index)} aria-label={`查看${slide.title[0]}`} />)}</div><Button className="border-white/20 bg-black/20 text-white hover:bg-white/10" size="icon" variant="outline" onClick={() => onSelect(activeIndex + 1)} aria-label="下一项研究"><IconChevronRight width={17} height={17} /></Button></div>;
+  return <div className="flex shrink-0 items-center gap-3"><Button className="border-white/20 bg-black/20 text-white hover:bg-white/10" size="icon" variant="outline" onClick={() => onSelect(activeIndex - 1)} aria-label="上一项研究"><IconChevronLeft width={17} height={17} /></Button><div className="flex items-center gap-2">{researchSlides.map((slide, index) => <Button className={index === activeIndex ? "h-1 w-8 min-w-0 rounded-none bg-white p-0 hover:bg-white" : "h-1 w-4 min-w-0 rounded-none bg-white/30 p-0 hover:bg-white/60"} key={slide.id} size="icon-xs" type="button" onClick={() => onSelect(index)} aria-label={`查看${slide.title[0]}`} />)}</div><Button className="border-white/20 bg-black/20 text-white hover:bg-white/10" size="icon" variant="outline" onClick={() => onSelect(activeIndex + 1)} aria-label="下一项研究"><IconChevronRight width={17} height={17} /></Button></div>;
 }
 
 function ApplicationCard({ index, slide }: { index: number; slide: typeof researchSlides[number] }) {

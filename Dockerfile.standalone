@@ -23,6 +23,10 @@ FROM apache/dolphinscheduler-standalone-server:3.2.2
 
 USER root
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends psmisc \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=uv /uv /uvx /usr/local/bin/
 
 ENV UV_PYTHON_INSTALL_DIR=/opt/arena-runtime/python \

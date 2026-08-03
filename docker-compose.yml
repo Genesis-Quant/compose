@@ -1,19 +1,21 @@
 name: arena-dolphinscheduler
 
+x-arena-env: &arena-env
+  - ./.env
+  - ./.env.prod
+
 x-arena-shared: &arena-shared
   type: bind
-  source: ${ARENA_SHARED_HOST_DIR:-D:/Docker/arena/shared}
+  source: ${ARENA_SHARED_DIR:?ARENA_SHARED_DIR is required}
   target: /shared
 
 services:
   dolphinscheduler-schema-initializer:
     image: apache/dolphinscheduler-tools:3.2.2
     restart: "no"
+    env_file: *arena-env
     environment:
       DATABASE: postgresql
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://${POSTGRES_HOST:?POSTGRES_HOST is required}:${POSTGRES_PORT:-5432}/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
-      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
-      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
     command: ["tools/bin/upgrade-schema.sh"]
 
   dolphinscheduler-standalone:
@@ -27,18 +29,12 @@ services:
       DATABASE: postgresql
       SPRING_PROFILES_ACTIVE: postgresql
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://${POSTGRES_HOST:?POSTGRES_HOST is required}:${POSTGRES_PORT:-5432}/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
-      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
-      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       SPRING_JACKSON_TIME_ZONE: UTC
       API_PYTHON_GATEWAY_ENABLED: "true"
-      API_PYTHON_GATEWAY_AUTH_TOKEN: "${DOLPHINSCHEDULER_PYTHON_GATEWAY_AUTH_TOKEN:?DOLPHINSCHEDULER_PYTHON_GATEWAY_AUTH_TOKEN is required}"
       MASTER_SERVER_LOAD_PROTECTION_ENABLED: "false"
       WORKER_SERVER_LOAD_PROTECTION_ENABLED: "false"
       WORKER_TENANT_CONFIG_DEFAULT_TENANT_ENABLED: "true"
-    env_file:
-      - ./.env
-      - ./.env.prod
+    env_file: *arena-env
     ports:
       - "127.0.0.1:12345:12345"
       - "127.0.0.1:25333:25333"
@@ -63,20 +59,8 @@ services:
       dockerfile: Dockerfile.backend
     restart: unless-stopped
     environment:
-      ARENA_SHARED_DIR: /shared
       PYTHONPATH: /workspace/backend
-      DATABASE_URL: "postgresql://${POSTGRES_HOST:?POSTGRES_HOST is required}:${POSTGRES_PORT:-5432}/${DOLPHINSCHEDULER_POSTGRES_DB:-dolphinscheduler}"
-      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
-      ARENA_JWT_SECRET: "${ARENA_JWT_SECRET:?ARENA_JWT_SECRET is required}"
-      ARENA_JWT_EXPIRE_DAYS: "${ARENA_JWT_EXPIRE_DAYS:-30}"
-      DOLPHINSCHEDULER_BASE_URL: http://dolphinscheduler-standalone:12345/dolphinscheduler
-      DOLPHINSCHEDULER_PYTHON_GATEWAY_ADDRESS: dolphinscheduler-standalone
-      DOLPHINSCHEDULER_PYTHON_GATEWAY_PORT: "25333"
-      DOLPHINSCHEDULER_PYTHON_GATEWAY_AUTH_TOKEN: "${DOLPHINSCHEDULER_PYTHON_GATEWAY_AUTH_TOKEN:?DOLPHINSCHEDULER_PYTHON_GATEWAY_AUTH_TOKEN is required}"
-    env_file:
-      - ./.env
-      - ./.env.prod
+    env_file: *arena-env
     ports:
       - "127.0.0.1:8000:8000"
     working_dir: /workspace/backend
@@ -103,8 +87,8 @@ services:
         condition: service_healthy
     volumes:
       - *arena-shared
-      - ./backend/apps:/workspace/backend/apps
-      - ./backend/config:/workspace/backend/config
+      - ./backend/core:/workspace/backend/core
+      - ./backend/config.py:/workspace/backend/config.py
       - ./backend/alembic:/workspace/backend/alembic
       - ./backend/main.py:/workspace/backend/main.py
       - ./backend/alembic.ini:/workspace/backend/alembic.ini

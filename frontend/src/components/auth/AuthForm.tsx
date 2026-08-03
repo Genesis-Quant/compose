@@ -9,9 +9,9 @@ import IconLockKeyhole from "~icons/lucide/lock-keyhole";
 import IconUserRound from "~icons/lucide/user-round";
 
 import { useAppStore } from "@/store";
-import { Button } from "@/ui/button";
-import { Input } from "@/ui/input";
-import { Label } from "@/ui/label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type FieldErrors = Partial<Record<"username" | "password" | "confirmPassword", string>>;
 
@@ -122,9 +122,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <button className="mr-2 grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" type="button" onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? "隐藏密码" : "显示密码"}>
+            <Button className="mr-2 shrink-0" size="icon" variant="ghost" type="button" onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? "隐藏密码" : "显示密码"}>
               {passwordVisible ? <IconEyeOff width={16} height={16} /> : <IconEye width={16} height={16} />}
-            </button>
+            </Button>
           </div>
         </Field>
 

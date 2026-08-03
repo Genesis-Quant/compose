@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
+    "@monaco-editor/react": "^4.7.0",
     "@visx/wordcloud": "^4.0.0",
     "autoprefixer": "^10.5.0",
     "axios": "^1.17.0",
@@ -17,8 +19,10 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "echarts": "^6.1.0",
-    "echarts-for-react": "^3.0.6",
     "html2canvas": "^1.4.1",
+    "jsonc-parser": "^3.3.1",
+    "lucide-react": "^1.28.0",
+    "monaco-editor": "^0.56.0",
     "motion": "^12.40.0",
     "postcss": "^8.5.15",
     "radix-ui": "^1.6.0",

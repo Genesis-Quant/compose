@@ -1,0 +1,98 @@
+import { FlaskConical, Loader2, MoreHorizontal, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { factorApi } from "@/assets/lib/factor";
+import { AppPagination } from "@/components/AppPagination";
+import { PageHero } from "@/components/PageHero";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { FactorProject, FactorProjectPage } from "@/types/factor";
+
+const PAGE_SIZE = 10;
+
+export default function FactorAnalysisPage() {
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<FactorProjectPage | null>(null);
+  const [page, setPage] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<FactorProject | null>(null);
+  const [title, setTitle] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const totalPages = Math.max(1, Math.ceil((projects?.total ?? 0) / PAGE_SIZE));
+
+  useEffect(() => { load(); }, [page]);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try { setProjects(await factorApi.listProjects(page, PAGE_SIZE)); }
+    catch (reason) { setError(errorMessage(reason)); }
+    finally { setLoading(false); }
+  }
+
+  async function create() {
+    if (!title.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const project = await factorApi.createProject(title.trim());
+      setCreateOpen(false);
+      navigate(`/factor/projects/${project.id}`);
+    } catch (reason) { setError(errorMessage(reason)); }
+    finally { setSaving(false); }
+  }
+
+  async function remove() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try { await factorApi.deleteProject(deleteTarget.id); setDeleteTarget(null); await load(); }
+    catch (reason) { setError(errorMessage(reason)); }
+    finally { setDeleting(false); }
+  }
+
+  return <div className="space-y-5">
+    <PageHero chips={["多因子分析", "版本迭代", "参数回填"]} description="管理因子分析项目、当前草稿和已保存版本，继续迭代同一项研究。" eyebrow="FACTOR ANALYSIS" icon={FlaskConical} stat={{ label: "研究项目", value: projects?.total ?? 0 }} title="因子分析" variant="analysis" />
+
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end"><Button variant="outline" onClick={load} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button><Button onClick={() => setCreateOpen(true)}><Plus />新建分析</Button></div>
+    {error ? <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div> : null}
+
+    <Card className="overflow-hidden py-0 shadow-sm">
+      <CardContent className="p-0">
+        <Table className="min-w-[1120px] table-fixed">
+          <TableHeader><TableRow><TableHead className="w-[260px] px-5">名称</TableHead><TableHead className="w-28 px-4">最新版本</TableHead><TableHead className="w-28 px-3 text-right">IC 均值</TableHead><TableHead className="w-28 px-3 text-right">RankIC 均值</TableHead><TableHead className="w-24 px-3 text-right">ICIR</TableHead><TableHead className="w-28 px-3 text-right">多空收益</TableHead><TableHead className="w-24 px-3 text-right">多空夏普</TableHead><TableHead className="w-40 px-3">更新时间</TableHead><TableHead className="w-16 px-3 text-right">操作</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {projects?.items.map((project) => <ProjectRow key={project.id} project={project} onOpen={() => navigate(`/factor/projects/${project.id}`)} onDelete={() => setDeleteTarget(project)} />)}
+            {loading ? <ProjectTableState><Loader2 className="animate-spin" />正在加载...</ProjectTableState> : null}
+            {!loading && !projects?.items.length ? <ProjectTableState>暂无研究项目</ProjectTableState> : null}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground">共 {projects?.total ?? 0} 条</p><AppPagination page={page} totalPages={totalPages} onPageChange={setPage} /></div>
+
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent><DialogHeader><DialogTitle>创建因子研究项目</DialogTitle><DialogDescription>创建后进入研究页设置参数和 DSL。</DialogDescription></DialogHeader><div className="space-y-2"><Label htmlFor="factor-project-title">项目名称</Label><Input id="factor-project-title" autoFocus placeholder="例如：量价因子有效性研究" value={title} onChange={(event) => setTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") create(); }} /></div><DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button><Button onClick={create} disabled={saving || !title.trim()}>{saving ? <Loader2 className="animate-spin" /> : <Plus />}创建</Button></DialogFooter></DialogContent></Dialog>
+
+    <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}><DialogContent><DialogHeader><DialogTitle>确认删除</DialogTitle><DialogDescription>删除后将无法查看“{deleteTarget?.title}”及其所有历史版本。该操作不可撤销。</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" disabled={deleting} onClick={() => setDeleteTarget(null)}>取消</Button><Button variant="destructive" disabled={deleting} onClick={remove}>{deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}删除</Button></DialogFooter></DialogContent></Dialog>
+  </div>;
+}
+
+function ProjectRow({ onDelete, onOpen, project }: { onDelete: () => void; onOpen: () => void; project: FactorProject }) {
+  const metric = firstMetric(project);
+  return <TableRow className="group cursor-pointer" onClick={onOpen}><TableCell className="px-5 py-4 font-medium group-hover:underline">{project.title}</TableCell><TableCell className="px-4 py-4"><Badge variant="secondary" className="tabular-nums">{project.latest_version ? `v${project.latest_version}` : "—"}</Badge></TableCell><TableCell className="px-3 py-4 text-right tabular-nums">{formatMetric(metric?.ic_mean)}</TableCell><TableCell className="px-3 py-4 text-right tabular-nums">{formatMetric(metric?.rank_ic_mean)}</TableCell><TableCell className="px-3 py-4 text-right tabular-nums">{formatMetric(metric?.ic_ir)}</TableCell><TableCell className="px-3 py-4 text-right tabular-nums">{formatMetric(metric?.long_short_cumulative_return, true)}</TableCell><TableCell className="px-3 py-4 text-right tabular-nums">{formatMetric(metric?.long_short_sharpe)}</TableCell><TableCell className="px-3 py-4 text-muted-foreground">{new Date(project.updated_at).toLocaleString("zh-CN")}</TableCell><TableCell className="px-3 py-4 text-right" onClick={(event) => event.stopPropagation()}><DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="项目操作" size="icon-sm" variant="ghost"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem variant="destructive" onSelect={onDelete}><Trash2 />删除</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>;
+}
+
+function ProjectTableState({ children }: { children: React.ReactNode }) { return <TableRow><TableCell colSpan={9}><div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">{children}</div></TableCell></TableRow>; }
+function firstMetric(project: FactorProject) { const factor = Object.values(project.latest_metrics ?? {})[0]; return factor ? Object.values(factor)[0] : undefined; }
+function formatMetric(value: number | null | undefined, percent = false) { if (value === null || value === undefined) return "—"; return percent ? `${(value * 100).toFixed(2)}%` : value.toFixed(4); }
+function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : String(reason); }
