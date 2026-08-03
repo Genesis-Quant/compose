@@ -11,7 +11,7 @@ import IconSave from "~icons/lucide/save";
 import IconTerminal from "~icons/lucide/terminal";
 
 import { factorApi } from "@/assets/lib/factor";
-import { tasksApi } from "@/assets/lib/tasks";
+import { workflowsApi } from "@/assets/lib/workflows";
 import FactorAnalysisEditor from "@/components/editor/FactorAnalysisEditor";
 import FactorAnalysisReport from "@/components/report/FactorAnalysisReport";
 import RequestBodyDialog from "@/components/research/RequestBodyDialog";
@@ -19,9 +19,9 @@ import SaveVersionDialog from "@/components/research/SaveVersionDialog";
 import VersionCompareDialog from "@/components/research/VersionCompareDialog";
 import VersionNavigator from "@/components/research/VersionNavigator";
 import TaskLogModal from "@/components/task/TaskLogModal";
-import TaskRunButton from "@/components/task/TaskRunButton";
+import WorkflowRunButton from "@/components/workflow/WorkflowRunButton";
 import { analysisDsl, analysisSettings, applyAnalysisSettings, defaultAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion } from "@/types/factor";
-import { terminalStates } from "@/types/task";
+import { terminalStates } from "@/types/workflow";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -33,9 +33,10 @@ export default function FactorAnalysisDetailPage() {
   const [catalog, setCatalog] = useState<DslCatalog | null>(null);
   const [parameters, setParameters] = useState<FactorAnalysisParameters>(defaultAnalysisParameters());
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
-  const [taskId, setTaskId] = useState<number | null>(null);
-  const [taskState, setTaskState] = useState("IDLE");
-  const [taskError, setTaskError] = useState<string | null>(null);
+  const [workflowInstanceId, setWorkflowInstanceId] = useState<number | null>(null);
+  const [workflowState, setWorkflowState] = useState("IDLE");
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [logTaskInstanceId, setLogTaskInstanceId] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<FactorMetrics | null>(null);
   const [dslValid, setDslValid] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -48,13 +49,13 @@ export default function FactorAnalysisDetailPage() {
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState("");
   const currentVersion = useMemo(() => versions.find((version) => version.version === selectedVersion), [selectedVersion, versions]);
-  const displayedTaskId = currentVersion?.task_id ?? taskId;
+  const displayedWorkflowInstanceId = currentVersion?.workflow_instance_id ?? workflowInstanceId;
   const displayedParameters = useMemo(() => normalizeAnalysisParameters(currentVersion?.parameters ?? parameters), [currentVersion, parameters]);
   const resultParameters = useMemo(() => normalizeAnalysisParameters(currentVersion?.parameters ?? project?.draft?.parameters ?? parameters), [currentVersion, parameters, project?.draft?.parameters]);
-  const displayedState = currentVersion ? "SUCCESS" : taskState;
+  const displayedState = currentVersion ? "SUCCESS" : workflowState;
   const readOnly = currentVersion !== undefined;
-  const activeTask = !currentVersion && taskId !== null && !terminalStates.has(taskState);
-  const running = submitting || activeTask;
+  const activeWorkflow = !currentVersion && workflowInstanceId !== null && !terminalStates.has(workflowState);
+  const running = submitting || activeWorkflow;
   const analysisReady = dslValid && validAnalysisContract(parameters, catalog);
   const captureMetrics = useCallback((value: FactorMetrics) => setMetrics(value), []);
 
@@ -67,13 +68,13 @@ export default function FactorAnalysisDetailPage() {
   }, [projectId]);
 
   useEffect(() => {
-    if (!taskId || terminalStates.has(taskState)) return undefined;
+    if (!workflowInstanceId || terminalStates.has(workflowState)) return undefined;
     const timer = window.setInterval(async () => {
       try {
-        const task = await tasksApi.status(taskId);
-        setTaskState(task.state);
-        setTaskError(task.error);
-        if (terminalStates.has(task.state)) {
+        const workflow = await workflowsApi.status(workflowInstanceId);
+        setWorkflowState(workflow.state);
+        setWorkflowError(workflow.error);
+        if (terminalStates.has(workflow.state)) {
           setStopping(false);
           window.clearInterval(timer);
           const refreshed = await factorApi.getProject(projectId);
@@ -82,7 +83,7 @@ export default function FactorAnalysisDetailPage() {
       } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [projectId, taskId, taskState]);
+  }, [projectId, workflowInstanceId, workflowState]);
 
   async function load() {
     setLoading(true);
@@ -96,9 +97,9 @@ export default function FactorAnalysisDetailPage() {
       if (nextProject.draft) {
         setSelectedVersion(null);
         setParameters(normalizeAnalysisParameters(nextProject.draft.parameters));
-        setTaskId(nextProject.draft.task_id);
-        setTaskState(nextProject.draft.state);
-        setTaskError(nextProject.draft.error);
+        setWorkflowInstanceId(nextProject.draft.workflow_instance_id);
+        setWorkflowState(nextProject.draft.state);
+        setWorkflowError(nextProject.draft.error);
       } else if (nextVersions[0]) {
         setSelectedVersion(nextVersions[0].version);
         setParameters(nextVersions[0].parameters);
@@ -113,29 +114,29 @@ export default function FactorAnalysisDetailPage() {
     setStopping(false);
     setError("");
     setMetrics(null);
-    setTaskError(null);
+    setWorkflowError(null);
     try {
       const submitted = await factorApi.analyze(projectId, normalizeAnalysisParameters(parameters));
-      setTaskId(submitted.task_id);
-      setTaskState("SUBMITTED");
+      setWorkflowInstanceId(submitted.workflow_instance_id);
+      setWorkflowState("SUBMITTED_SUCCESS");
       setSelectedVersion(null);
       const refreshed = await factorApi.getProject(projectId);
       setProject(refreshed);
       if (refreshed.draft) setParameters(normalizeAnalysisParameters(refreshed.draft.parameters));
-      setTaskState(refreshed.draft?.state ?? "SUBMITTED");
+      setWorkflowState(refreshed.draft?.state ?? "SUBMITTED_SUCCESS");
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSubmitting(false); }
   }
 
   async function stopAnalysis() {
-    if (!taskId || !activeTask || stopping) return;
+    if (!workflowInstanceId || !activeWorkflow || stopping) return;
     setStopping(true);
     setError("");
     try {
-      const response = await tasksApi.stop(taskId);
-      setTaskState(response.task.state);
-      setTaskError(response.task.error);
-      if (terminalStates.has(response.task.state)) {
+      const response = await workflowsApi.stop(workflowInstanceId);
+      setWorkflowState(response.workflow.state);
+      setWorkflowError(response.workflow.error);
+      if (terminalStates.has(response.workflow.state)) {
         setStopping(false);
         setProject(await factorApi.getProject(projectId));
       }
@@ -145,20 +146,33 @@ export default function FactorAnalysisDetailPage() {
     }
   }
 
+  async function openTaskLog() {
+    if (!displayedWorkflowInstanceId) return;
+    try {
+      const workflow = await workflowsApi.status(displayedWorkflowInstanceId);
+      const task = workflow.tasks.find((item) => item.task_instance_id !== null);
+      if (!task?.task_instance_id) throw new Error("工作流尚未创建 Task instance");
+      setLogTaskInstanceId(task.task_instance_id);
+      setLogsOpen(true);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
   async function saveVersion() {
-    if (!taskId || !metrics) return;
+    if (!workflowInstanceId || !metrics) return;
     setSubmitting(true);
     setError("");
     try {
-      const saved = await factorApi.saveVersion(projectId, taskId, remark, metrics);
+      const saved = await factorApi.saveVersion(projectId, workflowInstanceId, remark, metrics);
       const [nextProject, nextVersions] = await Promise.all([factorApi.getProject(projectId), factorApi.listVersions(projectId)]);
       setProject(nextProject);
       setVersions(nextVersions);
       setSelectedVersion(saved.version);
       setSaveOpen(false);
       setRemark("");
-      setTaskId(null);
-      setTaskState("IDLE");
+      setWorkflowInstanceId(null);
+      setWorkflowState("IDLE");
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSubmitting(false); }
   }
@@ -167,8 +181,8 @@ export default function FactorAnalysisDetailPage() {
     if (!currentVersion) return;
     setParameters(structuredClone(currentVersion.parameters));
     setSelectedVersion(null);
-    setTaskId(project?.draft?.task_id ?? null);
-    setTaskState(project?.draft?.state ?? "IDLE");
+    setWorkflowInstanceId(project?.draft?.workflow_instance_id ?? null);
+    setWorkflowState(project?.draft?.state ?? "IDLE");
     setMetrics(null);
   }
 
@@ -178,10 +192,10 @@ export default function FactorAnalysisDetailPage() {
     <section className="space-y-4 xl:sticky xl:top-24 xl:self-start">
     <AnalysisControls
       catalog={catalog}
-      activeTask={activeTask}
+      activeWorkflow={activeWorkflow}
       displayedParameters={displayedParameters}
       displayedState={displayedState}
-      displayedTaskId={displayedTaskId}
+      displayedWorkflowInstanceId={displayedWorkflowInstanceId}
       dslValid={analysisReady}
       metrics={metrics}
       project={project}
@@ -189,13 +203,13 @@ export default function FactorAnalysisDetailPage() {
       stopping={stopping}
       submitting={submitting}
       selectedVersion={selectedVersion}
-      taskState={taskState}
+      workflowState={workflowState}
       versions={versions}
       projectId={projectId}
       onAnalyze={analyze}
       onCompare={() => setCompareOpen(true)}
       onContinue={continueFromVersion}
-      onLogs={() => setLogsOpen(true)}
+      onLogs={openTaskLog}
       onShowParameters={() => setParametersOpen(true)}
       onSave={() => setSaveOpen(true)}
       onStop={stopAnalysis}
@@ -207,11 +221,11 @@ export default function FactorAnalysisDetailPage() {
     <AnalysisResults
       displayedParameters={resultParameters}
       displayedState={displayedState}
-      displayedTaskId={displayedTaskId}
+      displayedWorkflowInstanceId={displayedWorkflowInstanceId}
       error={error}
       readOnly={readOnly}
       running={running}
-      taskError={taskError}
+      workflowError={workflowError}
       onMetrics={captureMetrics}
     />
     <SaveVersionDialog
@@ -225,16 +239,18 @@ export default function FactorAnalysisDetailPage() {
     />
     <VersionCompareDialog currentVersion={selectedVersion} kind="factor" open={compareOpen} projectTitle={project.title} versions={versions} onOpenChange={setCompareOpen} />
     <RequestBodyDialog endpoint={`/api/v1/factor/projects/${projectId}/analyses`} open={parametersOpen} value={displayedParameters} onClose={() => setParametersOpen(false)} />
-    <TaskLogModal open={logsOpen} taskId={displayedTaskId} onOpenChange={setLogsOpen} />
+    <TaskLogModal open={logsOpen} workflowInstanceId={displayedWorkflowInstanceId} taskInstanceId={logTaskInstanceId} onOpenChange={setLogsOpen} />
   </div>;
 }
 
+function errorMessage(reason: unknown) { return reason instanceof Error ? reason.message : String(reason); }
+
 type AnalysisControlsProps = {
-  activeTask: boolean;
+  activeWorkflow: boolean;
   catalog: DslCatalog;
   displayedParameters: FactorAnalysisParameters;
   displayedState: string;
-  displayedTaskId: number | null;
+  displayedWorkflowInstanceId: number | null;
   dslValid: boolean;
   metrics: FactorMetrics | null;
   project: FactorProject;
@@ -243,7 +259,7 @@ type AnalysisControlsProps = {
   stopping: boolean;
   submitting: boolean;
   selectedVersion: number | null;
-  taskState: string;
+  workflowState: string;
   versions: FactorVersion[];
   onAnalyze: () => void;
   onCompare: () => void;
@@ -257,21 +273,21 @@ type AnalysisControlsProps = {
   onVersion: (version: number | null) => void;
 };
 
-function AnalysisControls({ activeTask, catalog, displayedParameters, displayedState, displayedTaskId, dslValid, metrics, project, projectId, readOnly, selectedVersion, stopping, submitting, taskState, versions, onAnalyze, onCompare, onContinue, onLogs, onParameters, onSave, onShowParameters, onStop, onValidity, onVersion }: AnalysisControlsProps) {
+function AnalysisControls({ activeWorkflow, catalog, displayedParameters, displayedState, displayedWorkflowInstanceId, dslValid, metrics, project, projectId, readOnly, selectedVersion, stopping, submitting, workflowState, versions, onAnalyze, onCompare, onContinue, onLogs, onParameters, onSave, onShowParameters, onStop, onValidity, onVersion }: AnalysisControlsProps) {
   return <div className="max-h-[calc(100vh-7rem)] overflow-y-auto rounded-md border bg-card shadow-sm">
     <div className="space-y-4 px-5 pb-0 pt-5">
       <div className="flex items-center gap-3"><h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{project.title}</h1><IconPencil className="text-foreground" width={16} height={16} aria-hidden="true" /></div>
       <p className="text-sm leading-6 text-muted-foreground">切换历史版本，或重新执行后保存为新版本。</p>
-      <VersionNavigator displayedState={displayedState} displayedTaskId={displayedTaskId} hasDraft={Boolean(project.draft)} onCompare={selectedVersion !== null && versions.length > 1 ? onCompare : undefined} selectedVersion={selectedVersion} versions={versions} onVersion={onVersion} />
+      <VersionNavigator displayedState={displayedState} displayedWorkflowInstanceId={displayedWorkflowInstanceId} hasDraft={Boolean(project.draft)} onCompare={selectedVersion !== null && versions.length > 1 ? onCompare : undefined} selectedVersion={selectedVersion} versions={versions} onVersion={onVersion} />
     </div>
     <div className="space-y-5 p-5">
       <FactorAnalysisEditor catalog={catalog} parameters={displayedParameters} projectId={projectId} readOnly={readOnly} onChange={onParameters} onValidityChange={onValidity} />
       <div className="grid grid-cols-2 gap-3">
-        {readOnly ? <Button className="col-span-2" onClick={onContinue}><IconCode2 />基于此版本研究</Button> : <><TaskRunButton active={activeTask} disabled={!dslValid} label="执行分析" stopping={stopping} submitting={submitting} onRun={onAnalyze} onStop={onStop} /><Button variant="outline" disabled={!metrics || taskState !== "SUCCESS"} onClick={onSave}><IconSave />保存</Button></>}
+        {readOnly ? <Button className="col-span-2" onClick={onContinue}><IconCode2 />基于此版本研究</Button> : <><WorkflowRunButton active={activeWorkflow} disabled={!dslValid} label="执行分析" stopping={stopping} submitting={submitting} onRun={onAnalyze} onStop={onStop} /><Button variant="outline" disabled={!metrics || workflowState !== "SUCCESS"} onClick={onSave}><IconSave />保存</Button></>}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Button variant="outline" onClick={onShowParameters}><IconBraces />展示参数</Button>
-        <Button variant="outline" disabled={!displayedTaskId} onClick={onLogs}><IconTerminal />任务日志</Button>
+        <Button variant="outline" disabled={!displayedWorkflowInstanceId} onClick={onLogs}><IconTerminal />Task 日志</Button>
       </div>
     </div>
   </div>;
@@ -280,15 +296,15 @@ function AnalysisControls({ activeTask, catalog, displayedParameters, displayedS
 type AnalysisResultsProps = {
   displayedParameters: FactorAnalysisParameters;
   displayedState: string;
-  displayedTaskId: number | null;
+  displayedWorkflowInstanceId: number | null;
   error: string;
   readOnly: boolean;
   running: boolean;
-  taskError: string | null;
+  workflowError: string | null;
   onMetrics: (metrics: FactorMetrics) => void;
 };
 
-function AnalysisResults({ displayedParameters, displayedState, displayedTaskId, error, readOnly, running, taskError, onMetrics }: AnalysisResultsProps) {
+function AnalysisResults({ displayedParameters, displayedState, displayedWorkflowInstanceId, error, readOnly, running, workflowError, onMetrics }: AnalysisResultsProps) {
   const [factor, setFactor] = useState(displayedParameters.factor_columns[0] ?? "");
 
   useEffect(() => {
@@ -301,10 +317,10 @@ function AnalysisResults({ displayedParameters, displayedState, displayedTaskId,
       <Button variant="outline" asChild><Link to="/factor"><IconArrowLeft />返回因子分析</Link></Button>
     </div>
     {error && <div className="rounded-md border border-destructive/30 bg-destructive/8 px-4 py-3 text-xs text-destructive">{error}</div>}
-    {taskError && <div className="rounded-md border border-destructive/30 bg-destructive/8 px-4 py-3 text-xs text-destructive">{taskError}</div>}
+    {workflowError && <div className="rounded-md border border-destructive/30 bg-destructive/8 px-4 py-3 text-xs text-destructive">{workflowError}</div>}
     {running && <div className="grid min-h-80 place-items-center rounded-md border bg-card text-center shadow-sm"><div><IconClock3 className="mx-auto animate-pulse text-primary" width={24} height={24} /><h3 className="mt-4 font-semibold">DolphinScheduler 正在执行分析</h3><p className="mt-2 text-sm text-muted-foreground">中间过程由 Tasks API 轮询，页面刷新后仍可恢复。</p></div></div>}
-    {displayedTaskId && displayedState === "SUCCESS" && factor && <FactorAnalysisReport factor={factor} key={displayedTaskId} parameters={displayedParameters} taskId={displayedTaskId} onMetrics={onMetrics} />}
-    {!displayedTaskId && !readOnly && <div className="grid min-h-80 place-items-center rounded-md border bg-card text-center shadow-sm"><div><IconFileClock className="mx-auto text-muted-foreground" width={24} height={24} /><h3 className="mt-4 font-semibold">尚未运行分析</h3><p className="mt-2 text-sm text-muted-foreground">填写左侧参数和 DSL 后执行分析。</p></div></div>}
+    {displayedWorkflowInstanceId && displayedState === "SUCCESS" && factor && <FactorAnalysisReport factor={factor} key={displayedWorkflowInstanceId} parameters={displayedParameters} workflowInstanceId={displayedWorkflowInstanceId} onMetrics={onMetrics} />}
+    {!displayedWorkflowInstanceId && !readOnly && <div className="grid min-h-80 place-items-center rounded-md border bg-card text-center shadow-sm"><div><IconFileClock className="mx-auto text-muted-foreground" width={24} height={24} /><h3 className="mt-4 font-semibold">尚未运行分析</h3><p className="mt-2 text-sm text-muted-foreground">填写左侧参数和 DSL 后执行分析。</p></div></div>}
   </section>;
 }
 

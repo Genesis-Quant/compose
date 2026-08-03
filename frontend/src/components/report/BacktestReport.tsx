@@ -39,10 +39,10 @@ type BacktestReportProps = {
   onSummary: (summary: BacktestSummary) => void;
   riskFreeRate?: number;
   showTabs?: boolean;
-  taskId: number;
+  workflowInstanceId: number;
 };
 
-export default function BacktestReport({ activeTab, annualTradingDays = 252, chartRanges, headerEnd, onActiveTabChange, onChartRanges, onSummary, riskFreeRate = 0, showTabs = true, taskId }: BacktestReportProps) {
+export default function BacktestReport({ activeTab, annualTradingDays = 252, chartRanges, headerEnd, onActiveTabChange, onChartRanges, onSummary, riskFreeRate = 0, showTabs = true, workflowInstanceId }: BacktestReportProps) {
   const theme = useAppStore((state) => state.theme);
   const analytics = useRef<BacktestAnalytics | null>(null);
   const [localTab, setLocalTab] = useState("overview");
@@ -57,9 +57,9 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
     let cancelled = false;
     setLoading(true);
     setError("");
-    Promise.all([backtestApi.output(taskId, "daily_portfolios"), backtestApi.output(taskId, "return_summary")])
+    Promise.all([backtestApi.output(workflowInstanceId, "daily_portfolios"), backtestApi.output(workflowInstanceId, "return_summary")])
       .then(async ([dailyPortfolios, returnSummary]) => {
-        const instance = await BacktestAnalytics.create(taskId, { daily_portfolios: dailyPortfolios, return_summary: returnSummary });
+        const instance = await BacktestAnalytics.create(workflowInstanceId, { daily_portfolios: dailyPortfolios, return_summary: returnSummary });
         if (cancelled) { await instance.close(); return; }
         analytics.current = instance;
         const [nextSummary, nextPortfolio] = await Promise.all([instance.summary(), instance.portfolios()]);
@@ -72,7 +72,7 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
       .catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; const instance = analytics.current; analytics.current = null; instance?.close(); };
-  }, [taskId]);
+  }, [workflowInstanceId]);
 
   const fullReport = useMemo(() => createReport(portfolio, annualTradingDays, riskFreeRate), [annualTradingDays, portfolio, riskFreeRate]);
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
     {showTabs ? <div className="sticky top-20 z-30 mb-2 w-fit pb-1"><TabsList><TabsTrigger value="overview">回测概览</TabsTrigger>{tableTabs.map((tab) => <TabsTrigger disabled={loading || Boolean(error)} key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}</TabsList></div> : null}
     {!loading && !error && portfolio.length ? <ReportDateRangeBar endDate={endDate} maximumDate={portfolio.at(-1)?.time ?? ""} minimumDate={portfolio[0]?.time ?? ""} points={rangePoints} startDate={startDate} theme={theme} onEndDate={(value) => setEndDate(value < startDate ? startDate : value)} onReset={() => { setStartDate(portfolio[0]?.time ?? ""); setEndDate(portfolio.at(-1)?.time ?? ""); }} onStartDate={(value) => setStartDate(value > endDate ? endDate : value)} /> : null}
     <TabsContent value="overview" className="space-y-4">{overview}</TabsContent>
-    {tableTabs.map((tab) => <TabsContent className="min-h-[calc(100dvh-20rem)]" key={`${tab.value}:${startDate}:${endDate}`} value={tab.value}><BacktestTable analytics={analytics.current} endDate={endDate} name={tab.value} startDate={startDate} taskId={taskId} /></TabsContent>)}
+    {tableTabs.map((tab) => <TabsContent className="min-h-[calc(100dvh-20rem)]" key={`${tab.value}:${startDate}:${endDate}`} value={tab.value}><BacktestTable analytics={analytics.current} endDate={endDate} name={tab.value} startDate={startDate} workflowInstanceId={workflowInstanceId} /></TabsContent>)}
   </Tabs>;
 }
 
@@ -177,7 +177,7 @@ function DrawdownTable({ rows }: { rows: DrawdownPeriod[] }) {
   return <div className="overflow-auto rounded-md border"><Table><TableHeader className="bg-muted/70"><TableRow><TableHead>开始</TableHead><TableHead>谷底</TableHead><TableHead>结束</TableHead><TableHead className="text-right">天数</TableHead><TableHead className="text-right">最大回撤</TableHead><TableHead className="text-right">99% 最大回撤</TableHead></TableRow></TableHeader><TableBody>{rows.map((row) => <TableRow key={`${row.start}-${row.end}`}><TableCell>{row.start}</TableCell><TableCell>{row.valley}</TableCell><TableCell>{row.end}</TableCell><TableCell className="text-right tabular-nums">{row.days}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.maxDrawdownPercent / 100, "percent")}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.maxDrawdown99Percent / 100, "percent")}</TableCell></TableRow>)}</TableBody></Table></div>;
 }
 
-function BacktestTable({ analytics, endDate, name, startDate, taskId }: { analytics: BacktestAnalytics | null; endDate: string; name: BacktestTableName; startDate: string; taskId: number }) {
+function BacktestTable({ analytics, endDate, name, startDate, workflowInstanceId }: { analytics: BacktestAnalytics | null; endDate: string; name: BacktestTableName; startDate: string; workflowInstanceId: number }) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<BacktestTablePage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -191,13 +191,13 @@ function BacktestTable({ analytics, endDate, name, startDate, taskId }: { analyt
     setLoading(true);
     setError("");
     async function load() {
-      if (!instance.isRegistered(name)) await instance.register(name, await backtestApi.output(taskId, name));
+      if (!instance.isRegistered(name)) await instance.register(name, await backtestApi.output(workflowInstanceId, name));
       const result = await instance.tablePage(name, page, pageSize, { start: startDate, end: endDate });
       if (!cancelled) setData(result);
     }
     load().catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason)); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [analytics, endDate, name, page, startDate, taskId]);
+  }, [analytics, endDate, name, page, startDate, workflowInstanceId]);
   if (loading) return <div className="grid min-h-64 place-items-center rounded-md border bg-card"><Loader2 className="animate-spin text-primary" /></div>;
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   if (!data?.rows.length) return <div className="grid min-h-64 place-items-center rounded-md border bg-card text-sm text-muted-foreground"><TableProperties className="mb-3 size-5" />暂无数据</div>;

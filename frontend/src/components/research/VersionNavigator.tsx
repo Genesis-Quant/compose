@@ -1,13 +1,13 @@
 import { ChevronLeft, ChevronRight, Ellipsis, GitCompare } from "lucide-react";
 
-import TaskStateBadge from "@/components/task/TaskStateBadge";
+import SchedulerStateBadge from "@/components/scheduler/SchedulerStateBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type VersionItem = { id: number; version: number; remark: string };
 
-export default function VersionNavigator({ displayedState, displayedTaskId, hasDraft, onCompare, onVersion, selectedVersion, versions }: { displayedState: string; displayedTaskId: number | null; hasDraft: boolean; onCompare?: () => void; onVersion: (version: number | null) => void; selectedVersion: number | null; versions: VersionItem[] }) {
+export default function VersionNavigator({ displayedState, displayedWorkflowInstanceId, hasDraft, onCompare, onVersion, selectedVersion, versions }: { displayedState: string; displayedWorkflowInstanceId: number | null; hasDraft: boolean; onCompare?: () => void; onVersion: (version: number | null) => void; selectedVersion: number | null; versions: VersionItem[] }) {
   const ordered = [...versions].sort((left, right) => left.version - right.version);
   const currentIndex = selectedVersion === null ? ordered.length : ordered.findIndex((version) => version.version === selectedVersion);
   const previous = ordered[currentIndex - 1]?.version;
@@ -22,6 +22,6 @@ export default function VersionNavigator({ displayedState, displayedTaskId, hasD
       <Button aria-label="下一版本" className="size-8" disabled={next === undefined} size="icon" variant="outline" onClick={() => next !== undefined && onVersion(next)}><ChevronRight /></Button>
     </div>
     {current?.remark ? <div className="mt-2 rounded-md border bg-background/60 px-3 py-2 text-sm leading-6 text-muted-foreground"><div className="mb-1 text-xs font-medium text-foreground">版本备注</div><div className="whitespace-pre-wrap break-words">{current.remark}</div></div> : null}
-    {displayedTaskId && !current?.remark ? <div className="mt-2 flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2 text-xs text-muted-foreground"><TaskStateBadge state={displayedState} /><span className="font-mono">任务 {displayedTaskId}</span></div> : null}
+    {displayedWorkflowInstanceId && !current?.remark ? <div className="mt-2 flex items-center gap-2 rounded-md border bg-background/60 px-3 py-2 text-xs text-muted-foreground"><SchedulerStateBadge state={displayedState} /><span className="font-mono">Workflow {displayedWorkflowInstanceId}</span></div> : null}
   </div>;
 }

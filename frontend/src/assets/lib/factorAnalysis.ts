@@ -18,10 +18,10 @@ export class FactorAnalytics {
     private readonly processedFile: string
   ) {}
 
-  static async create(taskId: number, files: { information: ArrayBuffer; groups: ArrayBuffer; processed?: ArrayBuffer }) {
-    const informationFile = `factor-${taskId}-information.parquet`;
-    const groupsFile = `factor-${taskId}-groups.parquet`;
-    const processedFile = `factor-${taskId}-processed.parquet`;
+  static async create(workflowInstanceId: number, files: { information: ArrayBuffer; groups: ArrayBuffer; processed?: ArrayBuffer }) {
+    const informationFile = `factor-${workflowInstanceId}-information.parquet`;
+    const groupsFile = `factor-${workflowInstanceId}-groups.parquet`;
+    const processedFile = `factor-${workflowInstanceId}-processed.parquet`;
     const database = await BrowserDuckDb.create({ [informationFile]: files.information, [groupsFile]: files.groups, ...files.processed ? { [processedFile]: files.processed } : {} });
     return new FactorAnalytics(database, informationFile, groupsFile, processedFile);
   }

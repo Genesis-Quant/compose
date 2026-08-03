@@ -40,7 +40,7 @@ export type AdminProcessInstance = {
 
 export type AdminOverview = {
   users: { total: number; administrators: number };
-  tasks: { total: number; active: number; success: number; failure: number };
+  workflow_instances: { total: number; active: number; success: number; failure: number };
   scheduler: {
     available: boolean;
     error: string | null;
@@ -65,9 +65,8 @@ export type IncrementalUpdateRun = {
   message: string;
   job_id: string;
   record_id: number;
-  task_id: number | null;
-  process_instance_id: number | null;
+  workflow_instance_id: number;
   project_code: number;
-  process_definition_code: number;
+  workflow_definition_code: number;
   scheduler_submission: unknown;
 };

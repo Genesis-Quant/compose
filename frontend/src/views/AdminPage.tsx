@@ -14,7 +14,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { adminApi } from "@/assets/lib/admin";
 import { PageHero } from "@/components/PageHero";
-import { taskStateLabel } from "@/components/task/TaskStateBadge";
+import { schedulerStateLabel } from "@/components/scheduler/SchedulerStateBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,7 +108,7 @@ export default function AdminPage() {
       description="查看 Arena 全局运行状态，维护调度工作流和用户权限，并直接发起数据增量更新。"
       eyebrow="ADMINISTRATION"
       icon={ShieldCheck}
-      stat={{ label: "运行中任务", value: overview?.tasks.active ?? 0 }}
+      stat={{ label: "运行中工作流", value: overview?.workflow_instances.active ?? 0 }}
       title="管理面板"
       variant="archive"
     />
@@ -118,8 +118,8 @@ export default function AdminPage() {
 
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <SummaryCard icon={<Users />} label="注册用户" value={overview?.users.total} detail={`${overview?.users.administrators ?? 0} 位管理员`} />
-      <SummaryCard icon={<Workflow />} label="全部任务" value={overview?.tasks.total} detail={`${overview?.tasks.active ?? 0} 个运行中`} />
-      <SummaryCard icon={<CheckCircle2 />} label="成功任务" value={overview?.tasks.success} detail="历史累计" />
+      <SummaryCard icon={<Workflow />} label="全部工作流实例" value={overview?.workflow_instances.total} detail={`${overview?.workflow_instances.active ?? 0} 个运行中`} />
+      <SummaryCard icon={<CheckCircle2 />} label="成功工作流" value={overview?.workflow_instances.success} detail="历史累计" />
       <SummaryCard icon={<Server />} label="Worker 节点" value={overview?.scheduler.workers.length} detail={overview?.scheduler.available ? "调度器在线" : "调度器不可用"} />
     </div>
 
@@ -185,7 +185,7 @@ export default function AdminPage() {
     <SectionCard title="近期工作流实例" description="DolphinScheduler 项目最近 20 个工作流实例。">
       <Table>
         <TableHeader><TableRow><TableHead>实例</TableHead><TableHead>状态</TableHead><TableHead>Worker Group</TableHead><TableHead>开始时间</TableHead><TableHead>结束时间</TableHead><TableHead>耗时</TableHead></TableRow></TableHeader>
-        <TableBody>{overview?.scheduler.recent_instances.map((instance) => <TableRow key={instance.id}><TableCell><div className="max-w-80 truncate font-medium" title={instance.name}>{instance.name}</div><div className="mt-1 font-mono text-[10px] text-muted-foreground">Instance #{instance.id}</div></TableCell><TableCell><StatusBadge tone={stateTone(instance.state)}>{taskStateLabel(instance.state)}</StatusBadge></TableCell><TableCell>{instance.worker_group}</TableCell><TableCell className="text-xs">{formatDate(instance.started_at)}</TableCell><TableCell className="text-xs">{formatDate(instance.finished_at)}</TableCell><TableCell className="font-mono text-xs">{instance.duration ?? "—"}</TableCell></TableRow>)}</TableBody>
+        <TableBody>{overview?.scheduler.recent_instances.map((instance) => <TableRow key={instance.id}><TableCell><div className="max-w-80 truncate font-medium" title={instance.name}>{instance.name}</div><div className="mt-1 font-mono text-[10px] text-muted-foreground">Instance #{instance.id}</div></TableCell><TableCell><StatusBadge tone={stateTone(instance.state)}>{schedulerStateLabel(instance.state)}</StatusBadge></TableCell><TableCell>{instance.worker_group}</TableCell><TableCell className="text-xs">{formatDate(instance.started_at)}</TableCell><TableCell className="text-xs">{formatDate(instance.finished_at)}</TableCell><TableCell className="font-mono text-xs">{instance.duration ?? "—"}</TableCell></TableRow>)}</TableBody>
       </Table>
       <EmptyState loading={loading} empty={!overview?.scheduler.recent_instances.length} />
     </SectionCard>

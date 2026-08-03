@@ -16,7 +16,7 @@ const BacktestPage = lazy(() => import("@/views/BacktestPage"));
 const BacktestDetailPage = lazy(() => import("@/views/BacktestDetailPage"));
 const ProfilePage = lazy(() => import("@/views/ProfilePage"));
 const RegisterPage = lazy(() => import("@/views/RegisterPage"));
-const TasksPage = lazy(() => import("@/views/TasksPage"));
+const WorkflowsPage = lazy(() => import("@/views/WorkflowsPage"));
 const AdminPage = lazy(() => import("@/views/AdminPage"));
 
 export default function App() {
@@ -43,7 +43,7 @@ export default function App() {
             <Route path="/factor/projects/:projectId" element={<FactorAnalysisDetailPage />} />
             <Route path="/backtest" element={<BacktestPage />} />
             <Route path="/backtest/projects/:projectId" element={<BacktestDetailPage />} />
-            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
             <Route path="/admin" element={user?.is_admin ? <AdminPage /> : <Navigate to="/" replace />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>

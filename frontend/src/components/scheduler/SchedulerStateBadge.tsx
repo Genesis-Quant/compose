@@ -3,17 +3,17 @@ import { CheckCircle2, CircleDashed, CircleX, Clock3, Loader2, PauseCircle, type
 
 import { cn } from "@/assets/lib/utils";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { terminalStates } from "@/types/task";
+import { terminalStates } from "@/types/workflow";
 
-export default function TaskStateBadge({ className, label, state, title }: { className?: string; label?: ReactNode; state: string; title?: string }) {
-  const visual = taskStateVisual(state);
+export default function SchedulerStateBadge({ className, label, state, title }: { className?: string; label?: ReactNode; state: string; title?: string }) {
+  const visual = schedulerStateVisual(state);
   const Icon = visual.icon;
-  return <StatusBadge className={cn("gap-1.5 font-mono", className)} title={title} tone={visual.tone}>{Icon ? <Icon className={cn("size-3", visual.animate && "animate-spin")} /> : null}{label ?? taskStateLabel(state)}</StatusBadge>;
+  return <StatusBadge className={cn("gap-1.5 font-mono", className)} title={title} tone={visual.tone}>{Icon ? <Icon className={cn("size-3", visual.animate && "animate-spin")} /> : null}{label ?? schedulerStateLabel(state)}</StatusBadge>;
 }
 
-const taskStateLabels: Record<string, string> = {
+const schedulerStateLabels: Record<string, string> = {
   RUNNING_EXECUTION: "RUNNING",
-  SUBMITTED_SUCCESS: "QUEUED",
+  SUBMITTED_SUCCESS: "WAITING",
   WAIT_TO_RUN: "WAITING",
   SERIAL_WAIT: "WAITING",
   DELAY_EXECUTION: "DELAYED",
@@ -25,10 +25,10 @@ const taskStateLabels: Record<string, string> = {
   SUBMIT_FAILED: "FAILED"
 };
 
-export function taskStateLabel(state: string) { return taskStateLabels[state] ?? state; }
+export function schedulerStateLabel(state: string) { return schedulerStateLabels[state] ?? state; }
 
-type TaskStateTone = "blue" | "green" | "amber" | "red" | "neutral";
-type TaskStateVisual = { tone: TaskStateTone; icon?: LucideIcon; animate?: boolean };
+type SchedulerStateTone = "blue" | "green" | "amber" | "red" | "neutral";
+type SchedulerStateVisual = { tone: SchedulerStateTone; icon?: LucideIcon; animate?: boolean };
 
 const successStates = new Set(["SUCCESS", "FORCED_SUCCESS"]);
 const runningStates = new Set(["RUNNING_EXECUTION", "DISPATCH"]);
@@ -47,7 +47,7 @@ const queuedStates = new Set([
 const pausedStates = new Set(["READY_PAUSE", "PAUSE"]);
 const stoppingStates = new Set(["READY_STOP", "NEED_FAULT_TOLERANCE"]);
 
-function taskStateVisual(state: string): TaskStateVisual {
+function schedulerStateVisual(state: string): SchedulerStateVisual {
   if (successStates.has(state)) return { tone: "green", icon: CheckCircle2 };
   if (terminalStates.has(state)) return { tone: "red", icon: CircleX };
   if (runningStates.has(state)) return { tone: "blue", icon: Loader2, animate: true };

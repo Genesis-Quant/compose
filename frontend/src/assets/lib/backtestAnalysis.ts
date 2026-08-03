@@ -15,9 +15,9 @@ const tableDateFields: Record<BacktestTableName, string> = { trade_details: "tra
 export class BacktestAnalytics {
   private constructor(private readonly database: BrowserDuckDb, private readonly files: Record<BacktestOutputName, string>, private readonly registered: Set<BacktestOutputName>) {}
 
-  static async create(taskId: number, buffers: Pick<Record<BacktestOutputName, ArrayBuffer>, "daily_portfolios" | "return_summary">) {
+  static async create(workflowInstanceId: number, buffers: Pick<Record<BacktestOutputName, ArrayBuffer>, "daily_portfolios" | "return_summary">) {
     const names: BacktestOutputName[] = ["trade_details", "daily_positions", "daily_portfolios", "return_summary", "daily_trading_statistics", "engine_stat"];
-    const files = Object.fromEntries(names.map((name) => [name, `backtest-${taskId}-${name}.parquet`])) as Record<BacktestOutputName, string>;
+    const files = Object.fromEntries(names.map((name) => [name, `backtest-${workflowInstanceId}-${name}.parquet`])) as Record<BacktestOutputName, string>;
     const initialFiles = Object.fromEntries(Object.entries(buffers).map(([name, buffer]) => [files[name as BacktestOutputName], buffer]));
     return new BacktestAnalytics(await BrowserDuckDb.create(initialFiles), files, new Set(Object.keys(buffers) as BacktestOutputName[]));
   }

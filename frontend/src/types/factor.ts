@@ -63,9 +63,9 @@ export const marketValueFields: { label: string; value: MarketValueField }[] = [
 export const analysisReturnColumns = (maxLags: number) => Array.from({ length: maxLags }, (_, lag) => `ret${lag}`);
 export const analysisManagedFactors = ["circ_mv", "total_mv"];
 
-export type FactorTaskSummary = {
+export type FactorWorkflowSummary = {
   record_id: number;
-  task_id: number | null;
+  workflow_instance_id: number | null;
   state: string;
   error: string | null;
   parameters: FactorAnalysisParameters;
@@ -96,7 +96,7 @@ export type FactorProject = {
   title: string;
   latest_version: number | null;
   latest_metrics: FactorMetrics | null;
-  draft: FactorTaskSummary | null;
+  draft: FactorWorkflowSummary | null;
   created_at: string;
   updated_at: string;
 };
@@ -108,16 +108,15 @@ export type FactorProjectPage = {
   total: number;
 };
 
-export type FactorAnalysisSubmitted = {
+export type FactorWorkflowSubmitted = {
   record_id: number;
-  task_id: number;
-  reused: boolean;
+  workflow_instance_id: number;
 };
 
 export type FactorVersion = {
   id: number;
   project_id: number;
-  task_id: number;
+  workflow_instance_id: number;
   version: number;
   remark: string;
   parameters: FactorAnalysisParameters;

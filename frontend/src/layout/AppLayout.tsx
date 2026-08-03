@@ -13,7 +13,7 @@ const navigation = [
   { id: "query", label: "数据查询", path: "/query", icon: DatabaseZap },
   { id: "factor", label: "因子分析", path: "/factor", icon: FlaskConical },
   { id: "backtest", label: "策略回测", path: "/backtest", icon: CandlestickChart },
-  { id: "tasks", label: "任务", path: "/tasks", icon: Workflow }
+  { id: "workflows", label: "工作流", path: "/workflows", icon: Workflow }
 ];
 
 const adminNavigation = { id: "admin", label: "管理面板", path: "/admin", icon: ShieldCheck };
@@ -56,7 +56,7 @@ function activePage(pathname: string) {
   if (pathname.startsWith("/query")) return "query";
   if (pathname.startsWith("/factor")) return "factor";
   if (pathname.startsWith("/backtest")) return "backtest";
-  if (pathname.startsWith("/tasks")) return "tasks";
+  if (pathname.startsWith("/workflows")) return "workflows";
   if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/profile")) return "profile";
   return "home";

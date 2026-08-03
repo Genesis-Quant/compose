@@ -28,9 +28,9 @@ export type BacktestParameters = {
   callbacks: Record<CallbackName, string>;
 };
 
-export type BacktestTaskSummary = {
+export type BacktestWorkflowSummary = {
   record_id: number;
-  task_id: number | null;
+  workflow_instance_id: number | null;
   state: string;
   error: string | null;
   parameters: BacktestParameters;
@@ -42,7 +42,7 @@ export type BacktestProject = {
   title: string;
   latest_version: number | null;
   latest_summary: BacktestSummary | null;
-  draft: BacktestTaskSummary | null;
+  draft: BacktestWorkflowSummary | null;
   created_at: string;
   updated_at: string;
 };
@@ -54,12 +54,12 @@ export type BacktestProjectPage = {
   total: number;
 };
 
-export type BacktestRunSubmitted = { record_id: number; task_id: number; reused: boolean };
+export type BacktestWorkflowSubmitted = { record_id: number; workflow_instance_id: number };
 
 export type BacktestVersion = {
   id: number;
   project_id: number;
-  task_id: number;
+  workflow_instance_id: number;
   version: number;
   remark: string;
   parameters: BacktestParameters;

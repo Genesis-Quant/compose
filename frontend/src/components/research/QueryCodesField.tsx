@@ -22,7 +22,7 @@ export default function QueryCodesField({ codes, disabled = false, onChange, pro
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const lastCodes = useRef(canonicalCodes(codes));
-  const sources = useMemo(() => projects.filter((project) => project.current?.state === "SUCCESS" && project.current.task_id), [projects]);
+  const sources = useMemo(() => projects.filter((project) => project.current?.state === "SUCCESS" && project.current.workflow_instance_id), [projects]);
 
   useEffect(() => {
     const nextCodes = canonicalCodes(codes);
@@ -45,14 +45,14 @@ export default function QueryCodesField({ codes, disabled = false, onChange, pro
 
   async function importProject(projectId: string) {
     const project = sources.find((item) => item.id === Number(projectId));
-    const taskId = project?.current?.task_id;
-    if (!project || !taskId) return;
+    const workflowInstanceId = project?.current?.workflow_instance_id;
+    if (!project || !workflowInstanceId) return;
     setSourceId(projectId);
     setImporting(true);
     setMessage("");
     setError("");
     try {
-      const nextCodes = await queryResultCodes(taskId);
+      const nextCodes = await queryResultCodes(workflowInstanceId);
       lastCodes.current = canonicalCodes(nextCodes);
       setText(formatCodes(nextCodes));
       setMessage(`已导入 ${nextCodes.length} 个去重代码`);

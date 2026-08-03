@@ -1,8 +1,8 @@
 import type { DslCatalog, DslDocument, FactorQuery } from "@/types/factor";
 
-export type QueryTaskSummary = {
+export type QueryWorkflowSummary = {
   record_id: number;
-  task_id: number | null;
+  workflow_instance_id: number | null;
   state: string;
   error: string | null;
   parameters: FactorQuery;
@@ -12,7 +12,7 @@ export type QueryTaskSummary = {
 export type QueryProject = {
   id: number;
   title: string;
-  current: QueryTaskSummary | null;
+  current: QueryWorkflowSummary | null;
   created_at: string;
   updated_at: string;
 };
@@ -25,7 +25,7 @@ export type QueryProjectPage = {
   limit: number;
 };
 
-export type QueryProjectSubmitted = { record_id: number; task_id: number; reused: boolean };
+export type QueryWorkflowSubmitted = { record_id: number; workflow_instance_id: number };
 export type QueryOutput = { name: "source_data" | "computed_data" | "filtered_data" | "data"; filename: string; size: number; modified_at: string };
 export type QueryCatalog = DslCatalog;
 

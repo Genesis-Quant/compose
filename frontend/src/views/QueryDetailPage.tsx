@@ -4,14 +4,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { BrowserDuckDb } from "@/assets/lib/duckdb";
 import { queryApi } from "@/assets/lib/query";
-import { tasksApi } from "@/assets/lib/tasks";
+import { workflowsApi } from "@/assets/lib/workflows";
 import DslEditor from "@/components/editor/DslEditor";
 import SqlEditor from "@/components/editor/SqlEditor";
 import QueryCodesField from "@/components/research/QueryCodesField";
 import RequestBodyDialog from "@/components/research/RequestBodyDialog";
 import TaskLogModal from "@/components/task/TaskLogModal";
-import TaskRunButton from "@/components/task/TaskRunButton";
-import TaskStateBadge from "@/components/task/TaskStateBadge";
+import WorkflowRunButton from "@/components/workflow/WorkflowRunButton";
+import SchedulerStateBadge from "@/components/scheduler/SchedulerStateBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DslDocument, FactorQuery } from "@/types/factor";
 import { applyQueryDsl, defaultQueryParameters, queryDsl, type QueryCatalog, type QueryProject } from "@/types/query";
-import { terminalStates } from "@/types/task";
+import { terminalStates } from "@/types/workflow";
 
 const PREVIEW_LIMIT = 200;
 
@@ -33,16 +33,17 @@ export default function QueryDetailPage() {
   const [catalog, setCatalog] = useState<QueryCatalog | null>(null);
   const [parameters, setParameters] = useState<FactorQuery>(defaultQueryParameters());
   const [dslValid, setDslValid] = useState(true);
-  const [taskId, setTaskId] = useState<number | null>(null);
-  const [taskState, setTaskState] = useState("IDLE");
-  const [taskError, setTaskError] = useState<string | null>(null);
+  const [workflowInstanceId, setWorkflowInstanceId] = useState<number | null>(null);
+  const [workflowState, setWorkflowState] = useState("IDLE");
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [logTaskInstanceId, setLogTaskInstanceId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const [loadedPreviewTask, setLoadedPreviewTask] = useState<number | null>(null);
+  const [loadedPreviewWorkflow, setLoadedPreviewWorkflow] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("result");
   const [selectedSources, setSelectedSources] = useState<Set<number>>(new Set());
   const [sql, setSql] = useState("SELECT *\nFROM current_result\nLIMIT 200;");
@@ -53,11 +54,11 @@ export default function QueryDetailPage() {
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState("");
   const request = parameters;
-  const sourceProjects = useMemo(() => projects.map((item) => item.id === project?.id ? project : item).filter((item): item is QueryProject => Boolean(item?.current?.task_id && item.current.state === "SUCCESS")), [project, projects]);
+  const sourceProjects = useMemo(() => projects.map((item) => item.id === project?.id ? project : item).filter((item): item is QueryProject => Boolean(item?.current?.workflow_instance_id && item.current.state === "SUCCESS")), [project, projects]);
   const selectedProjectSources = useMemo(() => sourceProjects.filter((item) => selectedSources.has(item.id)), [selectedSources, sourceProjects]);
   const tableNames = selectedProjectSources.map((item) => tableName(item.id, projectId));
-  const activeTask = taskId !== null && !terminalStates.has(taskState);
-  const running = submitting || activeTask;
+  const activeWorkflow = workflowInstanceId !== null && !terminalStates.has(workflowState);
+  const running = submitting || activeWorkflow;
 
   useEffect(() => {
     if (!Number.isInteger(projectId) || projectId <= 0) { navigate("/query", { replace: true }); return; }
@@ -65,13 +66,13 @@ export default function QueryDetailPage() {
   }, [projectId]);
 
   useEffect(() => {
-    if (!taskId || terminalStates.has(taskState)) return undefined;
+    if (!workflowInstanceId || terminalStates.has(workflowState)) return undefined;
     const timer = window.setInterval(async () => {
       try {
-        const task = await tasksApi.status(taskId);
-        setTaskState(task.state);
-        setTaskError(task.error);
-        if (terminalStates.has(task.state)) {
+        const workflow = await workflowsApi.status(workflowInstanceId);
+        setWorkflowState(workflow.state);
+        setWorkflowError(workflow.error);
+        if (terminalStates.has(workflow.state)) {
           setStopping(false);
           window.clearInterval(timer);
           const [nextProject, page] = await Promise.all([queryApi.getProject(projectId), queryApi.listProjects(1, 5)]);
@@ -81,13 +82,13 @@ export default function QueryDetailPage() {
       } catch (reason) { setError(errorMessage(reason)); }
     }, 2500);
     return () => window.clearInterval(timer);
-  }, [projectId, taskId, taskState]);
+  }, [projectId, workflowInstanceId, workflowState]);
 
   useEffect(() => {
-    if (taskState !== "SUCCESS" || !taskId || loadedPreviewTask === taskId) return;
-    loadPreview(taskId);
+    if (workflowState !== "SUCCESS" || !workflowInstanceId || loadedPreviewWorkflow === workflowInstanceId) return;
+    loadPreview(workflowInstanceId);
     setSelectedSources((current) => new Set(current).add(projectId));
-  }, [loadedPreviewTask, projectId, taskId, taskState]);
+  }, [loadedPreviewWorkflow, projectId, workflowInstanceId, workflowState]);
 
   async function load() {
     setLoading(true);
@@ -100,9 +101,9 @@ export default function QueryDetailPage() {
       if (nextProject.current) {
         setStopping(false);
         setParameters(nextProject.current.parameters);
-        setTaskId(nextProject.current.task_id);
-        setTaskState(nextProject.current.state);
-        setTaskError(nextProject.current.error);
+        setWorkflowInstanceId(nextProject.current.workflow_instance_id);
+        setWorkflowState(nextProject.current.state);
+        setWorkflowError(nextProject.current.error);
         if (nextProject.current.state === "SUCCESS") setSelectedSources(new Set([projectId]));
       }
     } catch (reason) { setError(errorMessage(reason)); }
@@ -114,31 +115,31 @@ export default function QueryDetailPage() {
     setSubmitting(true);
     setStopping(false);
     setError("");
-    setTaskError(null);
+    setWorkflowError(null);
     setPreviewRows([]);
     setPreviewError("");
-    setLoadedPreviewTask(null);
+    setLoadedPreviewWorkflow(null);
     try {
       const submitted = await queryApi.run(projectId, request);
       setParameters(request);
-      setTaskId(submitted.task_id);
-      setTaskState("SUBMITTED");
+      setWorkflowInstanceId(submitted.workflow_instance_id);
+      setWorkflowState("SUBMITTED_SUCCESS");
       const nextProject = await queryApi.getProject(projectId);
       setProject(nextProject);
-      setTaskState(nextProject.current?.state ?? "SUBMITTED");
+      setWorkflowState(nextProject.current?.state ?? "SUBMITTED_SUCCESS");
     } catch (reason) { setError(errorMessage(reason)); }
     finally { setSubmitting(false); }
   }
 
   async function stopQuery() {
-    if (!taskId || !activeTask || stopping) return;
+    if (!workflowInstanceId || !activeWorkflow || stopping) return;
     setStopping(true);
     setError("");
     try {
-      const response = await tasksApi.stop(taskId);
-      setTaskState(response.task.state);
-      setTaskError(response.task.error);
-      if (terminalStates.has(response.task.state)) {
+      const response = await workflowsApi.stop(workflowInstanceId);
+      setWorkflowState(response.workflow.state);
+      setWorkflowError(response.workflow.error);
+      if (terminalStates.has(response.workflow.state)) {
         setStopping(false);
         setProject(await queryApi.getProject(projectId));
       }
@@ -148,15 +149,28 @@ export default function QueryDetailPage() {
     }
   }
 
-  async function loadPreview(nextTaskId: number) {
+  async function openTaskLog() {
+    if (!workflowInstanceId) return;
+    try {
+      const workflow = await workflowsApi.status(workflowInstanceId);
+      const task = workflow.tasks.find((item) => item.task_instance_id !== null);
+      if (!task?.task_instance_id) throw new Error("工作流尚未创建 Task instance");
+      setLogTaskInstanceId(task.task_instance_id);
+      setLogsOpen(true);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function loadPreview(nextWorkflowInstanceId: number) {
     setPreviewLoading(true);
     setPreviewError("");
     try {
-      const buffer = await queryApi.output(nextTaskId, "data");
+      const buffer = await queryApi.output(nextWorkflowInstanceId, "data");
       const database = await BrowserDuckDb.create({ "current.parquet": buffer });
       try { setPreviewRows(await database.rows(`SELECT * FROM read_parquet('current.parquet') LIMIT ${PREVIEW_LIMIT}`)); }
       finally { await database.close(); }
-      setLoadedPreviewTask(nextTaskId);
+      setLoadedPreviewWorkflow(nextWorkflowInstanceId);
     } catch (reason) { setPreviewError(errorMessage(reason)); }
     finally { setPreviewLoading(false); }
   }
@@ -166,7 +180,7 @@ export default function QueryDetailPage() {
     setSqlRunning(true);
     setSqlError("");
     try {
-      const entries = await Promise.all(selectedProjectSources.map(async (source) => [`query-${source.id}.parquet`, await queryApi.output(Number(source.current?.task_id), "data")] as const));
+      const entries = await Promise.all(selectedProjectSources.map(async (source) => [`query-${source.id}.parquet`, await queryApi.output(Number(source.current?.workflow_instance_id), "data")] as const));
       const database = await BrowserDuckDb.create(Object.fromEntries(entries));
       try {
         for (const source of selectedProjectSources) await database.rows(`CREATE VIEW ${tableName(source.id, projectId)} AS SELECT * FROM read_parquet('query-${source.id}.parquet')`);
@@ -183,23 +197,23 @@ export default function QueryDetailPage() {
 
   return <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(380px,0.85fr)_minmax(0,1.75fr)] xl:gap-6">
     <section className="xl:sticky xl:top-24 xl:self-start"><div className="max-h-[calc(100vh-7rem)] overflow-y-auto rounded-md border bg-card shadow-sm">
-      <div className="flex items-start justify-between gap-3 border-b px-5 py-5"><div className="min-w-0"><h1 className="truncate text-lg font-semibold">{project.title}</h1><p className="mt-1 text-xs text-muted-foreground">任务 ID：{taskId ?? "—"}</p></div><TaskStateBadge state={taskState} /></div>
+      <div className="flex items-start justify-between gap-3 border-b px-5 py-5"><div className="min-w-0"><h1 className="truncate text-lg font-semibold">{project.title}</h1><p className="mt-1 text-xs text-muted-foreground">Workflow ID：{workflowInstanceId ?? "—"}</p></div><SchedulerStateBadge state={workflowState} /></div>
       <div className="space-y-5 p-5">
         <div className="grid grid-cols-2 gap-3"><QueryField label="开始日期" type="date" value={parameters.start_date} onChange={(startDate) => setParameters({ ...parameters, start_date: startDate })} /><QueryField label="结束日期" type="date" value={parameters.end_date} onChange={(endDate) => setParameters({ ...parameters, end_date: endDate })} /></div>
         <QueryField label="回溯周期" value={parameters.lookback} onChange={(lookback) => setParameters({ ...parameters, lookback })} />
         <QueryCodesField codes={parameters.codes} projects={projects} onChange={(nextCodes) => setParameters({ ...parameters, codes: nextCodes })} />
         <div className="h-[430px]"><DslEditor catalog={catalog} modelPath={`factor-dsl://query/${projectId}/dataset.json`} value={queryDsl(parameters)} onChange={updateDsl} onValidityChange={setDslValid} /></div>
-        <TaskRunButton active={activeTask} className="w-full" disabled={!dslValid} label="执行查询" stopping={stopping} submitting={submitting} onRun={runQuery} onStop={stopQuery} />
-        <div className="grid grid-cols-2 gap-3"><Button variant="outline" onClick={() => setParametersOpen(true)}><Braces />展示参数</Button><Button variant="outline" disabled={!taskId} onClick={() => setLogsOpen(true)}><Terminal />任务日志</Button></div>
+        <WorkflowRunButton active={activeWorkflow} className="w-full" disabled={!dslValid} label="执行查询" stopping={stopping} submitting={submitting} onRun={runQuery} onStop={stopQuery} />
+        <div className="grid grid-cols-2 gap-3"><Button variant="outline" onClick={() => setParametersOpen(true)}><Braces />展示参数</Button><Button variant="outline" disabled={!workflowInstanceId} onClick={openTaskLog}><Terminal />Task 日志</Button></div>
       </div>
     </div></section>
 
     <section className="min-w-0">
       <div className="mb-5 flex items-center justify-between gap-3"><Tabs value={activeTab} onValueChange={setActiveTab}><TabsList><TabsTrigger value="result">查询结果</TabsTrigger><TabsTrigger value="sql">SQL 二次查询</TabsTrigger></TabsList></Tabs><Button variant="outline" asChild><Link to="/query"><ArrowLeft />返回数据查询</Link></Button></div>
       {error ? <ErrorMessage message={error} /> : null}
-      {taskError ? <ErrorMessage message={taskError} /> : null}
+      {workflowError ? <ErrorMessage message={workflowError} /> : null}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsContent value="result"><ResultPanel loading={previewLoading} rows={previewRows} running={running} state={taskState} error={previewError} /></TabsContent>
+        <TabsContent value="result"><ResultPanel loading={previewLoading} rows={previewRows} running={running} state={workflowState} error={previewError} /></TabsContent>
         <TabsContent value="sql"><div className="space-y-5">
           <Card className="py-0"><CardHeader className="border-b py-4"><CardTitle className="text-sm">数据源</CardTitle></CardHeader><CardContent className="divide-y p-0">{sourceProjects.length ? sourceProjects.map((source) => <label className="flex cursor-pointer items-center gap-4 px-5 py-3" key={source.id}><Switch checked={selectedSources.has(source.id)} onCheckedChange={(checked) => toggleSource(source.id, checked)} /><span className="min-w-0 flex-1 truncate text-sm font-medium">{source.title}</span><code className="text-xs text-muted-foreground">{tableName(source.id, projectId)}</code></label>) : <div className="px-5 py-8 text-center text-sm text-muted-foreground">暂无成功的查询结果</div>}</CardContent></Card>
           <div className="h-[360px]"><SqlEditor modelPath={`sql://query/${projectId}/secondary.sql`} tables={tableNames} value={sql} onChange={setSql} /></div>
@@ -210,7 +224,7 @@ export default function QueryDetailPage() {
       </Tabs>
     </section>
     <RequestBodyDialog endpoint={`/api/v1/query/projects/${projectId}/queries`} open={parametersOpen} value={request} onClose={() => setParametersOpen(false)} />
-    <TaskLogModal open={logsOpen} taskId={taskId} onOpenChange={setLogsOpen} />
+    <TaskLogModal open={logsOpen} workflowInstanceId={workflowInstanceId} taskInstanceId={logTaskInstanceId} onOpenChange={setLogsOpen} />
   </div>;
 }
 

@@ -25,13 +25,13 @@ type FactorAnalysisReportProps = {
   chartRanges?: FactorChartRanges;
   factor: string;
   parameters: FactorAnalysisParameters;
-  taskId: number;
+  workflowInstanceId: number;
   onChartRanges?: (ranges: FactorChartRanges) => void;
   onMetrics: (metrics: FactorMetrics) => void;
 };
 
 type IcType = "RankIC" | "IC";
-export default function FactorAnalysisReport({ chartRanges, factor, onChartRanges, onMetrics, parameters, taskId }: FactorAnalysisReportProps) {
+export default function FactorAnalysisReport({ chartRanges, factor, onChartRanges, onMetrics, parameters, workflowInstanceId }: FactorAnalysisReportProps) {
   const theme = useAppStore((state) => state.theme);
   const analytics = useRef<FactorAnalytics | null>(null);
   const factorColumnsKey = parameters.factor_columns.join("\u0001");
@@ -76,10 +76,10 @@ export default function FactorAnalysisReport({ chartRanges, factor, onChartRange
     async function loadResults() {
       try {
         const [informationBuffer, groupBuffer] = await Promise.all([
-          factorApi.output(taskId, "information_coefficient"),
-          factorApi.output(taskId, "group_returns")
+          factorApi.output(workflowInstanceId, "information_coefficient"),
+          factorApi.output(workflowInstanceId, "group_returns")
         ]);
-        session = await FactorAnalytics.create(taskId, { information: informationBuffer, groups: groupBuffer });
+        session = await FactorAnalytics.create(workflowInstanceId, { information: informationBuffer, groups: groupBuffer });
         if (cancelled) {
           await session.close();
           return;
@@ -101,7 +101,7 @@ export default function FactorAnalysisReport({ chartRanges, factor, onChartRange
       if (analytics.current === session) analytics.current = null;
       session?.close().catch(() => undefined);
     };
-  }, [factorColumnsKey, onMetrics, parameters.n_groups, returnColumnsKey, taskId]);
+  }, [factorColumnsKey, onMetrics, parameters.n_groups, returnColumnsKey, workflowInstanceId]);
 
   useEffect(() => {
     const session = analytics.current;
