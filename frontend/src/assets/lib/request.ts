@@ -32,7 +32,10 @@ function errorMessage(error: unknown) {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) return detail.map((item) => item?.msg).filter(Boolean).join("；") || "提交内容不符合要求";
   if (error.code === "ECONNABORTED") return "请求超时，请稍后重试";
-  if (!error.response) return "无法连接 Arena 服务";
+  if (!error.response) {
+    const reason = [error.code, error.message].filter(Boolean).join("：");
+    return reason ? `无法连接 Arena 服务（${reason}）` : "无法连接 Arena 服务";
+  }
   return `请求失败（${error.response.status}）`;
 }
 
