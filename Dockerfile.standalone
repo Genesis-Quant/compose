@@ -23,6 +23,23 @@ FROM apache/dolphinscheduler-standalone-server:3.2.2
 
 USER root
 
+# 换源：兼容 deb822 (debian.sources) 和传统单行格式 (sources.list)，含 Ubuntu 兜底
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        cp /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak; \
+        sed -i 's|http://deb.debian.org/debian|https://mirrors.tuna.tsinghua.edu.cn/debian|g' /etc/apt/sources.list.d/debian.sources; \
+        sed -i 's|http://security.debian.org/debian-security|https://mirrors.tuna.tsinghua.edu.cn/debian-security|g' /etc/apt/sources.list.d/debian.sources; \
+    elif [ -f /etc/apt/sources.list ]; then \
+        cp /etc/apt/sources.list /etc/apt/sources.list.bak; \
+        sed -i -e 's|http://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' \
+               -e 's|http://security.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' \
+               -e 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' \
+               -e 's|http://security.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' \
+               /etc/apt/sources.list; \
+    else \
+        echo "no apt sources file found, skip mirror switch"; \
+    fi
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends psmisc \
     && rm -rf /var/lib/apt/lists/*
