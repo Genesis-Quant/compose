@@ -11,13 +11,12 @@ runtime/*
 !runtime/examples/
 !runtime/examples/**
 !backend/
-!backend/apps/
-!backend/apps/**
-!backend/config/
-!backend/config/**
+!backend/core/
+!backend/core/**
 !backend/alembic/
 !backend/alembic/**
 !backend/alembic.ini
+!backend/config.py
 !backend/main.py
 !backend/pyproject.toml
 !backend/uv.lock

@@ -1,16 +1,18 @@
-import { Loader2, TableProperties } from "lucide-react";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { backtestApi } from "@/assets/lib/backtest";
-import { BacktestAnalytics, type BacktestTableName, type BacktestTablePage, type PortfolioPoint } from "@/assets/lib/backtestAnalysis";
+import { BacktestAnalytics, backtestTableTimeColumns, type BacktestTableName, type BacktestTablePage, type PortfolioPoint } from "@/assets/lib/backtestAnalysis";
+import { backtestTableConfigs } from "@/assets/lib/backtestTable";
 import { chartRange, formatAxisLabel } from "@/assets/lib/chart";
 import { quantStatsReport, type DrawdownPeriod, type QuantStatsReport } from "@/assets/lib/quantstats";
 import DateRangeBar from "@/components/bar/DateRangeBar";
 import EChart from "@/components/chart/EChart";
-import { AppPagination } from "@/components/pagination/AppPagination";
+import ParquetDataTable from "@/components/table/ParquetDataTable";
 import { useAppStore } from "@/store";
 import type { BacktestSummary } from "@/types/backtest";
 import type { AxisFormat, BacktestChartRanges, ChartRange } from "@/types/chart";
+import { emptyParquetTableQuery, type ParquetTableQuery } from "@/types/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
@@ -21,12 +23,6 @@ const tableTabs = [
   { value: "daily_trading_statistics", label: "交易统计" }
 ] as const;
 
-const tableColumnLabels: Record<BacktestTableName, Record<string, string>> = {
-  trade_details: { orderId: "订单编号", symbol: "证券代码", direction: "买卖方向", sendTime: "委托时间", orderPrice: "委托价格", orderQty: "委托数量", tradeTime: "成交时间", tradePrice: "成交价格", tradeQty: "成交数量", orderStatus: "订单状态", label: "策略标签" },
-  daily_positions: { symbol: "证券代码", tradeDate: "交易日期", lastDayLongPosition: "昨日多头持仓", lastDayShortPosition: "昨日空头持仓", longPosition: "多头持仓", longPositionAvgPrice: "多头持仓均价", shortPosition: "空头持仓", shortPositionAvgPrice: "空头持仓均价", todayBuyVolume: "当日买入数量", todayBuyValue: "当日买入金额", todaySellVolume: "当日卖出数量", todaySellValue: "当日卖出金额", closePrice: "收盘价" },
-  daily_trading_statistics: { symbol: "证券代码", tradeDate: "交易日期", todayBuyOpenTradeVolume: "买入开仓数量", todayBuyOpenTradeValue: "买入开仓金额", todayBuyOpenAvgPrice: "买入开仓均价", todaySellOpenTradeVolume: "卖出开仓数量", todaySellOpenTradeValue: "卖出开仓金额", todaySellOpenAvgPrice: "卖出开仓均价", todaySellCloseTradeVolume: "卖出平仓数量", todaySellCloseTradeValue: "卖出平仓金额", todaySellCloseAvgPrice: "卖出平仓均价", todayBuyCloseTradeVolume: "买入平仓数量", todayBuyCloseTradeValue: "买入平仓金额", todayBuyCloseAvgPrice: "买入平仓均价" }
-};
-
 type MetricFormat = "decimal" | "percent" | "integer" | "currency";
 type Metric = { label: string; value: number | null; format?: MetricFormat };
 
@@ -34,7 +30,6 @@ type BacktestReportProps = {
   activeTab?: string;
   annualTradingDays?: number;
   chartRanges?: BacktestChartRanges;
-  headerEnd?: ReactNode;
   onActiveTabChange?: (value: string) => void;
   onChartRanges?: (ranges: BacktestChartRanges) => void;
   onSummary: (summary: BacktestSummary) => void;
@@ -43,29 +38,37 @@ type BacktestReportProps = {
   workflowInstanceId: number;
 };
 
-export default function BacktestReport({ activeTab, annualTradingDays = 252, chartRanges, headerEnd, onActiveTabChange, onChartRanges, onSummary, riskFreeRate = 0, showTabs = true, workflowInstanceId }: BacktestReportProps) {
+export default function BacktestReport({ activeTab, annualTradingDays = 252, chartRanges, onActiveTabChange, onChartRanges, onSummary, riskFreeRate = 0, showTabs = true, workflowInstanceId }: BacktestReportProps) {
   const theme = useAppStore((state) => state.theme);
   const analytics = useRef<BacktestAnalytics | null>(null);
   const [localTab, setLocalTab] = useState("overview");
-  const [backendSummary, setBackendSummary] = useState<BacktestSummary>({});
   const [portfolio, setPortfolio] = useState<PortfolioPoint[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(20);
+  const [tableQuery, setTableQuery] = useState<ParquetTableQuery>(emptyParquetTableQuery);
+  const [tableData, setTableData] = useState<BacktestTablePage | null>(null);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableError, setTableError] = useState("");
+  const selectedTab = activeTab ?? localTab;
+  const tableName = isBacktestTableName(selectedTab) ? selectedTab : null;
+  const tableRequestKey = createTableRequestKey(workflowInstanceId, tableName, startDate, endDate, tablePage, tablePageSize, tableQuery);
+  const [tableLoadedKey, setTableLoadedKey] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
-    Promise.all([backtestApi.output(workflowInstanceId, "daily_portfolios"), backtestApi.output(workflowInstanceId, "return_summary")])
-      .then(async ([dailyPortfolios, returnSummary]) => {
-        const instance = await BacktestAnalytics.create(workflowInstanceId, { daily_portfolios: dailyPortfolios, return_summary: returnSummary });
+    backtestApi.output(workflowInstanceId, "daily_portfolios")
+      .then(async (dailyPortfolios) => {
+        const instance = await BacktestAnalytics.create(workflowInstanceId, dailyPortfolios);
         if (cancelled) { await instance.close(); return; }
         analytics.current = instance;
-        const [nextSummary, nextPortfolio] = await Promise.all([instance.summary(), instance.portfolios()]);
+        const nextPortfolio = await instance.portfolios();
         if (cancelled) return;
-        setBackendSummary(nextSummary);
         setPortfolio(nextPortfolio);
         setStartDate(nextPortfolio[0]?.time ?? "");
         setEndDate(nextPortfolio.at(-1)?.time ?? "");
@@ -75,11 +78,29 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
     return () => { cancelled = true; const instance = analytics.current; analytics.current = null; instance?.close(); };
   }, [workflowInstanceId]);
 
+  useEffect(() => {
+    const activeInstance = analytics.current;
+    if (!tableName || !activeInstance || loading || error || !startDate || !endDate) return undefined;
+    const instance = activeInstance;
+    const name = tableName;
+    const requestKey = tableRequestKey;
+    let cancelled = false;
+    setTableLoading(true);
+    setTableError("");
+    async function loadTable() {
+      if (!instance.isRegistered(name)) await instance.register(name, await backtestApi.output(workflowInstanceId, name));
+      const result = await instance.tablePage(name, tablePage, tablePageSize, { start: startDate, end: endDate }, tableQuery);
+      if (!cancelled) { setTableData(result); setTableLoadedKey(requestKey); }
+    }
+    loadTable().catch((reason) => { if (!cancelled) { setTableError(reason instanceof Error ? reason.message : String(reason)); setTableLoadedKey(requestKey); } }).finally(() => { if (!cancelled) setTableLoading(false); });
+    return () => { cancelled = true; };
+  }, [endDate, error, loading, startDate, tableName, tablePage, tablePageSize, tableQuery, tableRequestKey, workflowInstanceId]);
+
   const fullReport = useMemo(() => createReport(portfolio, annualTradingDays, riskFreeRate), [annualTradingDays, portfolio, riskFreeRate]);
   useEffect(() => {
     if (!fullReport) return;
-    onSummary({ ...backendSummary, totalReturn: fullReport.totalReturn, annualReturn: fullReport.cagr, annualVolatility: fullReport.volatility, sharpeRatio: fullReport.sharpe, maxDrawdown: fullReport.maxDrawdown, dailyWinningRate: fullReport.winRate });
-  }, [backendSummary, fullReport, onSummary]);
+    onSummary({ totalReturn: fullReport.totalReturn, annualReturn: fullReport.cagr, annualVolatility: fullReport.volatility, sharpeRatio: fullReport.sharpe, maxDrawdown: fullReport.maxDrawdown, dailyWinningRate: fullReport.winRate });
+  }, [fullReport, onSummary]);
 
   const selectedPortfolio = useMemo(() => portfolio.filter((row) => (!startDate || row.time >= startDate) && (!endDate || row.time <= endDate)), [endDate, portfolio, startDate]);
   const rangePoints = useMemo(() => portfolio.map((row) => ({ time: row.time, value: row.dailyReturn })), [portfolio]);
@@ -101,12 +122,13 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
   else if (!report) overview = <div className="rounded-md border py-10 text-center text-sm text-muted-foreground">所选日期范围内暂无回测数据</div>;
   else overview = <ReportOverview chartRanges={chartRanges} portfolio={selectedPortfolio} report={report} theme={theme} />;
 
-  return <Tabs value={activeTab ?? localTab} onValueChange={(value) => { setLocalTab(value); onActiveTabChange?.(value); }} className="relative">
-    {headerEnd ? <div className="absolute right-0 top-0 z-20">{headerEnd}</div> : null}
+  const tableContent = tableName ? renderParquetContent({ data: tableData, error: tableLoadedKey === tableRequestKey ? tableError : "", loading: tableLoading || tableLoadedKey !== tableRequestKey, name: tableName, page: tablePage, pageSize: tablePageSize, query: tableQuery, onPage: setTablePage, onPageSize: (nextPageSize) => { setTablePage(1); setTablePageSize(nextPageSize); }, onQuery: (nextQuery) => { setTablePage(1); setTableQuery(nextQuery); } }) : null;
+
+  return <Tabs value={selectedTab} onValueChange={(value) => { setTablePage(1); setTableQuery(emptyParquetTableQuery()); setLocalTab(value); onActiveTabChange?.(value); }} className="relative">
     {showTabs ? <div className="sticky top-20 z-30 mb-2 w-fit pb-1"><TabsList><TabsTrigger value="overview">回测概览</TabsTrigger>{tableTabs.map((tab) => <TabsTrigger disabled={loading || Boolean(error)} key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}</TabsList></div> : null}
-    {!loading && !error && portfolio.length ? <DateRangeBar endDate={endDate} maximumDate={portfolio.at(-1)?.time ?? ""} minimumDate={portfolio[0]?.time ?? ""} points={rangePoints} startDate={startDate} theme={theme} onEndDate={(value) => setEndDate(value < startDate ? startDate : value)} onReset={() => { setStartDate(portfolio[0]?.time ?? ""); setEndDate(portfolio.at(-1)?.time ?? ""); }} onStartDate={(value) => setStartDate(value > endDate ? endDate : value)} /> : null}
+    {!loading && !error && portfolio.length ? <DateRangeBar endDate={endDate} maximumDate={portfolio.at(-1)?.time ?? ""} minimumDate={portfolio[0]?.time ?? ""} points={rangePoints} startDate={startDate} theme={theme} onEndDate={(value) => { setTablePage(1); setEndDate(value < startDate ? startDate : value); }} onReset={() => { setTablePage(1); setStartDate(portfolio[0]?.time ?? ""); setEndDate(portfolio.at(-1)?.time ?? ""); }} onStartDate={(value) => { setTablePage(1); setStartDate(value > endDate ? endDate : value); }} /> : null}
     <TabsContent value="overview" className="space-y-4">{overview}</TabsContent>
-    {tableTabs.map((tab) => <TabsContent className="min-h-[calc(100dvh-20rem)]" key={`${tab.value}:${startDate}:${endDate}`} value={tab.value}><BacktestTable analytics={analytics.current} endDate={endDate} name={tab.value} startDate={startDate} workflowInstanceId={workflowInstanceId} /></TabsContent>)}
+    {tableTabs.map((tab) => <TabsContent className="min-h-[calc(100dvh-20rem)]" key={tab.value} value={tab.value}>{selectedTab === tab.value ? tableContent : null}</TabsContent>)}
   </Tabs>;
 }
 
@@ -178,32 +200,11 @@ function DrawdownTable({ rows }: { rows: DrawdownPeriod[] }) {
   return <div className="overflow-auto rounded-md border"><Table><TableHeader className="bg-muted/70"><TableRow><TableHead>开始</TableHead><TableHead>谷底</TableHead><TableHead>结束</TableHead><TableHead className="text-right">天数</TableHead><TableHead className="text-right">最大回撤</TableHead><TableHead className="text-right">99% 最大回撤</TableHead></TableRow></TableHeader><TableBody>{rows.map((row) => <TableRow key={`${row.start}-${row.end}`}><TableCell>{row.start}</TableCell><TableCell>{row.valley}</TableCell><TableCell>{row.end}</TableCell><TableCell className="text-right tabular-nums">{row.days}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.maxDrawdownPercent / 100, "percent")}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.maxDrawdown99Percent / 100, "percent")}</TableCell></TableRow>)}</TableBody></Table></div>;
 }
 
-function BacktestTable({ analytics, endDate, name, startDate, workflowInstanceId }: { analytics: BacktestAnalytics | null; endDate: string; name: BacktestTableName; startDate: string; workflowInstanceId: number }) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [data, setData] = useState<BacktestTablePage | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  useLayoutEffect(() => {
-    if (!analytics || !startDate || !endDate) return undefined;
-    const instance = analytics;
-    let cancelled = false;
-    setData(null);
-    setLoading(true);
-    setError("");
-    async function load() {
-      if (!instance.isRegistered(name)) await instance.register(name, await backtestApi.output(workflowInstanceId, name));
-      const result = await instance.tablePage(name, page, pageSize, { start: startDate, end: endDate });
-      if (!cancelled) setData(result);
-    }
-    load().catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason)); }).finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [analytics, endDate, name, page, pageSize, startDate, workflowInstanceId]);
-  if (loading) return <div className="grid min-h-64 place-items-center rounded-md border bg-card"><Loader2 className="animate-spin text-primary" /></div>;
+function renderParquetContent({ data, error, loading, name, onPage, onPageSize, onQuery, page, pageSize, query }: { data: BacktestTablePage | null; error: string; loading: boolean; name: BacktestTableName; onPage: (page: number) => void; onPageSize: (pageSize: number) => void; onQuery: (query: ParquetTableQuery) => void; page: number; pageSize: number; query: ParquetTableQuery }): ReactNode {
+  if (loading && !data) return <div className="grid min-h-64 place-items-center rounded-md border bg-card"><Loader2 className="animate-spin text-primary" /></div>;
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
-  if (!data?.rows.length) return <div className="grid min-h-64 place-items-center rounded-md border bg-card text-sm text-muted-foreground"><TableProperties className="mb-3 size-5" />暂无数据</div>;
-  const totalPages = Math.max(1, Math.ceil(data.total / pageSize));
-  return <Card className="overflow-hidden py-0"><CardContent className="p-0"><div className="max-h-[calc(100dvh-20rem)] overflow-auto"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow>{data.columns.map((column) => <TableHead className="whitespace-nowrap" key={column}>{tableColumnLabels[name][column]}</TableHead>)}</TableRow></TableHeader><TableBody>{data.rows.map((row, index) => <TableRow key={index}>{data.columns.map((column) => <TableCell className="max-w-72 whitespace-nowrap font-mono text-xs" key={column}>{displayValue(row[column])}</TableCell>)}</TableRow>)}</TableBody></Table></div><div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-muted-foreground">共 {data.total} 条</span><AppPagination page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} /></div></CardContent></Card>;
+  if (!data) return null;
+  return <ParquetDataTable columnConfigs={backtestTableConfigs[name]} columns={data.columns} containerClassName="max-h-[calc(100dvh-20rem)]" loading={loading} pagination={{ page, pageSize, total: data.total, onPageChange: onPage, onPageSizeChange: onPageSize }} query={{ value: query, onChange: onQuery }} rows={data.rows} timeColumn={backtestTableTimeColumns[name]} />;
 }
 
 function createReport(rows: PortfolioPoint[], periods: number, riskFreeRate: number) { return rows.length ? quantStatsReport(rows.map((row) => ({ time: row.time, value: row.dailyReturn ?? 0 })), periods, riskFreeRate) : null; }
@@ -231,7 +232,8 @@ function formatMetric(value: number | null | undefined, format: MetricFormat = "
   return value.toFixed(3);
 }
 
-function displayValue(value: unknown) { if (value === null || value === undefined) return "—"; if (value instanceof Date) return value.toLocaleString("zh-CN", { hour12: false }); if (typeof value === "bigint") return value.toString(); if (typeof value === "object") return JSON.stringify(value, (_, item) => typeof item === "bigint" ? item.toString() : item); return String(value); }
+function isBacktestTableName(value: string): value is BacktestTableName { return tableTabs.some((tab) => tab.value === value); }
+function createTableRequestKey(workflowInstanceId: number, name: BacktestTableName | null, startDate: string, endDate: string, page: number, pageSize: number, query: ParquetTableQuery) { return name ? `${workflowInstanceId}:${name}:${startDate}:${endDate}:${page}:${pageSize}:${JSON.stringify(query)}` : ""; }
 function average(values: number[]) { return values.reduce((sum, value) => sum + value, 0) / values.length; }
 
 function portfolioOption(rows: PortfolioPoint[], report: QuantStatsReport, theme: string, ranges?: BacktestChartRanges) { return baseOption(theme, rows.map((row) => row.time), [{ name: "策略净值", type: "line", data: report.netValue.map((row) => row.value), showSymbol: false, lineStyle: { width: 2.2 }, color: "#2563eb" }, { name: "总资产", type: "line", yAxisIndex: 1, data: rows.map((row) => row.totalEquity), showSymbol: false, lineStyle: { width: 1.5 }, color: "#059669" }], ranges?.netValue, ranges?.totalEquity, true, "decimal", "integer"); }

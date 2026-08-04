@@ -10,6 +10,7 @@ const AppLayout = lazy(() => import("@/layout/AppLayout"));
 const HomePage = lazy(() => import("@/views/HomePage"));
 const QueryPage = lazy(() => import("@/views/QueryPage"));
 const QueryDetailPage = lazy(() => import("@/views/QueryDetailPage"));
+const SecondaryQueryPage = lazy(() => import("@/views/SecondaryQueryPage"));
 const FactorAnalysisPage = lazy(() => import("@/views/FactorAnalysisPage"));
 const FactorAnalysisDetailPage = lazy(() => import("@/views/FactorAnalysisDetailPage"));
 const BacktestPage = lazy(() => import("@/views/BacktestPage"));
@@ -38,6 +39,7 @@ export default function App() {
           <Route element={authenticated ? <AppLayout /> : <Navigate to="/login" replace />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/query" element={<QueryPage />} />
+            <Route path="/query/secondary" element={<SecondaryQueryPage />} />
             <Route path="/query/projects/:projectId" element={<QueryDetailPage />} />
             <Route path="/factor" element={<FactorAnalysisPage />} />
             <Route path="/factor/projects/:projectId" element={<FactorAnalysisDetailPage />} />

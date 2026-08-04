@@ -14,6 +14,10 @@ export const queryApi = {
   output: (workflowInstanceId: number, name: QueryOutput["name"]) => client.getBinary(`/query/workflows/${workflowInstanceId}/outputs/${name}`)
 };
 
+export function queryResultTableName(projectId: number) {
+  return `query_${projectId}`;
+}
+
 export async function queryResultCodes(workflowInstanceId: number): Promise<string[]> {
   const buffer = await queryApi.output(workflowInstanceId, "data");
   const database = await BrowserDuckDb.create({ "query-result.parquet": buffer });

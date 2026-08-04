@@ -31,10 +31,10 @@ export type QueryCatalog = DslCatalog;
 
 export function defaultQueryParameters(): FactorQuery {
   return {
-    start_date: "2020-01-01",
-    end_date: "2026-01-01",
+    start_date: "2025-01-01",
+    end_date: "2025-04-02",
     lookback: "P0D",
-    codes: [],
+    codes: ["000001.SZ", "600000.SH"],
     factors: ["close", "vol"],
     derivatives: {},
     filters: []

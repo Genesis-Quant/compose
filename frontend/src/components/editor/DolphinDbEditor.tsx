@@ -2,6 +2,7 @@ import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { useEffect, useRef } from "react";
 
 import "@/assets/lib/monaco";
+import MonacoEditorFrame from "@/components/editor/MonacoEditorFrame";
 import { useAppStore } from "@/store";
 
 const snippets = [
@@ -37,7 +38,7 @@ export default function DolphinDbEditor({ modelPath, onChange, onValidityChange,
     if (onValidityChange && validate) onValidityChange(validate(source));
   }
 
-  return <div className="h-full min-h-0 overflow-hidden rounded-md border"><Editor beforeMount={configureDolphinDb} height="100%" language="dolphindb" onChange={change} onMount={mount} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, cursorBlinking: "smooth", fontFamily: "\"Cascadia Code\", \"JetBrains Mono\", Consolas, monospace", fontLigatures: true, fontSize: 13, formatOnPaste: true, lineHeight: 21, minimap: { enabled: false }, padding: { top: 16, bottom: 16 }, quickSuggestions: true, readOnly, scrollBeyondLastLine: false, suggest: { preview: true, showSnippets: true }, tabSize: 4, wordWrap: "on" }} path={modelPath} theme={theme === "dark" ? "vs-dark" : "light"} value={value} /></div>;
+  return <MonacoEditorFrame className="min-h-0"><Editor beforeMount={configureDolphinDb} height="100%" language="dolphindb" onChange={change} onMount={mount} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, cursorBlinking: "smooth", fontFamily: "\"Cascadia Code\", \"JetBrains Mono\", Consolas, monospace", fontLigatures: true, fontSize: 13, formatOnPaste: true, lineHeight: 21, minimap: { enabled: false }, padding: { top: 16, bottom: 16 }, quickSuggestions: true, readOnly, scrollBeyondLastLine: false, suggest: { preview: true, showSnippets: true }, tabSize: 4, wordWrap: "on" }} path={modelPath} theme={theme === "dark" ? "vs-dark" : "light"} value={value} /></MonacoEditorFrame>;
 }
 
 function configureDolphinDb(monaco: Monaco) {

@@ -3,6 +3,7 @@ import { parse, type ParseError } from "jsonc-parser";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { configureDslLanguage, isDslDocument, registerDslLanguageProviders } from "@/assets/lib/dslLanguage";
+import MonacoEditorFrame from "@/components/editor/MonacoEditorFrame";
 import { useAppStore } from "@/store";
 import type { DslCatalog, DslDocument } from "@/types/factor";
 
@@ -44,7 +45,7 @@ export default function DslEditor({ catalog, modelPath, onChange, onValidityChan
     onChange(document);
   }
 
-  return <div className="dsl-editor flex h-full min-h-72 flex-col overflow-hidden rounded-md border border-border"><div className="min-h-0 flex-1"><Editor
+  return <MonacoEditorFrame className="dsl-editor min-h-72"><Editor
     beforeMount={configureDslLanguage}
     height="100%"
     language="json"
@@ -80,5 +81,5 @@ export default function DslEditor({ catalog, modelPath, onChange, onValidityChan
     path={modelPath}
     theme={theme === "dark" ? "vs-dark" : "light"}
     value={source}
-  /></div></div>;
+  /></MonacoEditorFrame>;
 }

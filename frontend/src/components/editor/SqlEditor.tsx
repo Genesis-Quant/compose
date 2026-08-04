@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import "monaco-editor/languages/definitions/sql/register.js";
 
 import "@/assets/lib/monaco";
+import MonacoEditorFrame from "@/components/editor/MonacoEditorFrame";
 import { useAppStore } from "@/store";
 
 export default function SqlEditor({ modelPath, onChange, tables, value }: { modelPath: string; onChange: (value: string) => void; tables: string[]; value: string }) {
@@ -28,5 +29,5 @@ export default function SqlEditor({ modelPath, onChange, tables, value }: { mode
     });
   };
 
-  return <div className="h-full min-h-64 overflow-hidden rounded-md border"><Editor height="100%" language="sql" onChange={(source) => onChange(source ?? "")} onMount={mount} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, cursorBlinking: "smooth", fontFamily: "\"Cascadia Code\", \"JetBrains Mono\", Consolas, monospace", fontLigatures: true, fontSize: 13, lineHeight: 21, minimap: { enabled: false }, padding: { top: 14, bottom: 14 }, quickSuggestions: true, scrollBeyondLastLine: false, tabSize: 2, wordWrap: "off" }} path={modelPath} theme={theme === "dark" ? "vs-dark" : "light"} value={value} /></div>;
+  return <MonacoEditorFrame className="min-h-64"><Editor height="100%" language="sql" onChange={(source) => onChange(source ?? "")} onMount={mount} options={{ automaticLayout: true, bracketPairColorization: { enabled: true }, cursorBlinking: "smooth", fontFamily: "\"Cascadia Code\", \"JetBrains Mono\", Consolas, monospace", fontLigatures: true, fontSize: 13, lineHeight: 21, minimap: { enabled: false }, padding: { top: 14, bottom: 14 }, quickSuggestions: true, scrollBeyondLastLine: false, tabSize: 2, wordWrap: "off" }} path={modelPath} theme={theme === "dark" ? "vs-dark" : "light"} value={value} /></MonacoEditorFrame>;
 }

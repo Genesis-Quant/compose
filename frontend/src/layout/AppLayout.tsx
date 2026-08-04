@@ -21,6 +21,7 @@ const adminNavigation = { id: "admin", label: "管理面板", path: "/admin", ic
 export default function AppLayout() {
   const location = useLocation();
   const active = activePage(location.pathname);
+  const analysisWorkspace = isAnalysisWorkspace(location.pathname);
   const theme = useAppStore((state) => state.theme);
   const setTheme = useAppStore((state) => state.setTheme);
   const user = useAppStore((state) => state.user);
@@ -48,7 +49,11 @@ export default function AppLayout() {
         </div>
       </div>
     </header>
-    {active === "home" ? <Outlet /> : <section className="mx-auto min-h-[calc(100vh-4rem)] max-w-[1440px] px-3 py-5 sm:px-6 sm:py-8 lg:py-10"><Outlet /></section>}
+    {active === "home"
+      ? <Outlet />
+      : analysisWorkspace
+        ? <section className="min-h-[calc(100dvh-4rem)]"><Outlet /></section>
+        : <section className="mx-auto min-h-[calc(100vh-4rem)] max-w-[1440px] px-3 py-5 sm:px-6 sm:py-8 lg:py-10"><Outlet /></section>}
   </main>;
 }
 
@@ -60,4 +65,11 @@ function activePage(pathname: string) {
   if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/profile")) return "profile";
   return "home";
+}
+
+function isAnalysisWorkspace(pathname: string) {
+  return pathname === "/query/secondary"
+    || pathname.startsWith("/query/projects/")
+    || pathname.startsWith("/factor/projects/")
+    || pathname.startsWith("/backtest/projects/");
 }

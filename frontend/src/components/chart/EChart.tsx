@@ -6,15 +6,22 @@ import { useEffect, useRef } from "react";
 
 use([BarChart, LineChart, DataZoomComponent, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
+const RESIZE_SETTLE_MS = 100;
+
 export default function EChart({ height, onDataZoomChange, option }: { height: number; onDataZoomChange?: (event: unknown) => void; option: EChartsCoreOption }) {
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!container.current) return undefined;
     const chart = init(container.current);
-    const observer = new ResizeObserver(() => chart.resize());
+    let resizeTimer: number | undefined;
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => chart.resize(), RESIZE_SETTLE_MS);
+    });
     observer.observe(container.current);
     return () => {
+      window.clearTimeout(resizeTimer);
       observer.disconnect();
       chart.dispose();
     };

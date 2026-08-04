@@ -25,6 +25,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.standalone
+      args:
+        APT_MIRROR: ${APT_MIRROR:-https://mirrors.aliyun.com}
+        UV_DEFAULT_INDEX: ${UV_DEFAULT_INDEX:-https://mirrors.aliyun.com/pypi/simple}
+        UV_PYTHON_INSTALL_MIRROR: ${UV_PYTHON_INSTALL_MIRROR:-https://registry.npmmirror.com/-/binary/python-build-standalone}
     restart: unless-stopped
     environment:
       <<: *dolphinscheduler-environment
@@ -37,8 +41,8 @@ services:
       WORKER_TENANT_CONFIG_DEFAULT_TENANT_ENABLED: "true"
     env_file: *arena-env
     ports:
-      - "127.0.0.1:12345:12345"
-      - "127.0.0.1:25333:25333"
+      - "${DOLPHINSCHEDULER_BIND_IP:-127.0.0.1}:${DOLPHINSCHEDULER_API_BIND_PORT:-12345}:12345"
+      - "${DOLPHINSCHEDULER_BIND_IP:-127.0.0.1}:${DOLPHINSCHEDULER_PYTHON_GATEWAY_BIND_PORT:-25333}:25333"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:12345/dolphinscheduler/actuator/health"]
       interval: 15s
@@ -58,12 +62,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+      args:
+        UV_DEFAULT_INDEX: ${UV_DEFAULT_INDEX:-https://mirrors.aliyun.com/pypi/simple}
     restart: unless-stopped
     environment:
       PYTHONPATH: /workspace/backend
     env_file: *arena-env
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_BIND_PORT:-8000}:8000"
     working_dir: /workspace/backend
     command:
       [
