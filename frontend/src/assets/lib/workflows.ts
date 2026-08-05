@@ -1,7 +1,14 @@
 import { client } from "@/assets/lib/request";
-import type { WorkflowActionResponse, WorkflowInformation, WorkflowListFilters, WorkflowListPage } from "@/types/workflow";
+import { terminalStates, type WorkflowActionResponse, type WorkflowInformation, type WorkflowListFilters, type WorkflowListPage } from "@/types/workflow";
 
 export const workflowApplicationNames = { query: "Query", factor: "Factor", backtest: "Backtest", incremental: "Incremental" } as const;
+export type WorkflowResultPhase = "idle" | "running" | "failure" | "success";
+
+export function resolveWorkflowResultPhase(running: boolean, workflowInstanceId: number | null, state: string): WorkflowResultPhase {
+  if (running || workflowInstanceId !== null && !terminalStates.has(state)) return "running";
+  if (workflowInstanceId === null) return "idle";
+  return state === "SUCCESS" ? "success" : "failure";
+}
 
 export function formatDuration(seconds: number | null | undefined, style: "long" | "short" = "short") {
   if (seconds === null || seconds === undefined) return "—";

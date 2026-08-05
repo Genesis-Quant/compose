@@ -1,9 +1,10 @@
-import { Clock3, Database, FileQuestion, Loader2 } from "lucide-react";
+import { CircleX, Clock3, Database, FileQuestion, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BrowserDuckDb } from "@/assets/lib/duckdb";
 import { queryApi } from "@/assets/lib/query";
 import { errorMessage } from "@/assets/lib/utils";
+import { resolveWorkflowResultPhase, type WorkflowResultPhase } from "@/assets/lib/workflows";
 import DateRangeBar from "@/components/bar/DateRangeBar";
 import EmptyStatePanel from "@/components/panel/EmptyStatePanel";
 import ErrorPanel from "@/components/panel/ErrorPanel";
@@ -23,6 +24,7 @@ type QueryResultPanelProps = {
 };
 
 export default function QueryResultPanel({ error, running, state, timeColumn = "time", workflowError, workflowInstanceId }: QueryResultPanelProps) {
+  const phase = resolveWorkflowResultPhase(running, workflowInstanceId, state);
   const theme = useAppStore((store) => store.theme);
   const database = useRef<BrowserDuckDb | null>(null);
   const request = useRef(0);
@@ -40,12 +42,9 @@ export default function QueryResultPanel({ error, running, state, timeColumn = "
   const [loadedWorkflow, setLoadedWorkflow] = useState<number | null>(null);
 
   useEffect(() => {
-    if (running || state !== "SUCCESS" || !workflowInstanceId) {
-      if (running || !workflowInstanceId) resetPreview();
-      return;
-    }
+    if (phase !== "success" || !workflowInstanceId) { resetPreview(); return; }
     if (loadedWorkflow !== workflowInstanceId) loadPreview(workflowInstanceId);
-  }, [loadedWorkflow, running, state, workflowInstanceId]);
+  }, [loadedWorkflow, phase, workflowInstanceId]);
 
   useEffect(() => {
     const activeDatabase = database.current;
@@ -131,15 +130,18 @@ export default function QueryResultPanel({ error, running, state, timeColumn = "
 
   const minimumDate = points[0]?.time ?? "";
   const maximumDate = points.at(-1)?.time ?? "";
-  return <section className="min-w-0"><h2 className="mb-5 text-lg font-semibold">查询结果</h2>{error ? <ErrorPanel className="mb-5" message={error} /> : null}{workflowError ? <ErrorPanel className="mb-5" message={workflowError} /> : null}<div className="space-y-4">{points.length ? <DateRangeBar endDate={endDate} label="结果区间" maximumDate={maximumDate} minimumDate={minimumDate} points={points} startDate={startDate} theme={theme} onEndDate={(value) => { setPage(1); setEndDate(value < startDate ? startDate : value); }} onReset={() => { setPage(1); setStartDate(minimumDate); setEndDate(maximumDate); }} onStartDate={(value) => { setPage(1); setStartDate(value > endDate ? endDate : value); }} /> : null}<ResultContent columns={columns} error={previewError} loading={loading} page={page} pageSize={pageSize} query={tableQuery} rows={rows} running={running} state={state} timeColumn={timeColumn} total={total} onPage={setPage} onPageSize={(value) => { setPage(1); setPageSize(value); }} onQuery={(value) => { setPage(1); setTableQuery(value); }} /></div></section>;
+  const panelError = error || (phase !== "failure" ? workflowError : null);
+  const result = <div className="space-y-4">{phase === "success" && points.length ? <DateRangeBar endDate={endDate} label="结果区间" maximumDate={maximumDate} minimumDate={minimumDate} points={points} startDate={startDate} theme={theme} onEndDate={(value) => { setPage(1); setEndDate(value < startDate ? startDate : value); }} onReset={() => { setPage(1); setStartDate(minimumDate); setEndDate(maximumDate); }} onStartDate={(value) => { setPage(1); setStartDate(value > endDate ? endDate : value); }} /> : null}<ResultContent columns={columns} error={previewError} loading={loading} page={page} pageSize={pageSize} phase={phase} query={tableQuery} rows={rows} timeColumn={timeColumn} total={total} workflowError={workflowError} onPage={setPage} onPageSize={(value) => { setPage(1); setPageSize(value); }} onQuery={(value) => { setPage(1); setTableQuery(value); }} /></div>;
+  return <section className="min-w-0 space-y-5"><h2 className="text-lg font-semibold">查询结果</h2>{panelError ? <ErrorPanel message={panelError} /> : null}{phase === "success" || !panelError ? result : null}</section>;
 }
 
-function ResultContent({ columns, error, loading, onPage, onPageSize, onQuery, page, pageSize, query, rows, running, state, timeColumn, total }: { columns: string[]; error: string; loading: boolean; onPage: (page: number) => void; onPageSize: (pageSize: number) => void; onQuery: (query: ParquetTableQuery) => void; page: number; pageSize: number; query: ParquetTableQuery; rows: Record<string, unknown>[]; running: boolean; state: string; timeColumn: string; total: number }) {
+function ResultContent({ columns, error, loading, onPage, onPageSize, onQuery, page, pageSize, phase, query, rows, timeColumn, total, workflowError }: { columns: string[]; error: string; loading: boolean; onPage: (page: number) => void; onPageSize: (pageSize: number) => void; onQuery: (query: ParquetTableQuery) => void; page: number; pageSize: number; phase: WorkflowResultPhase; query: ParquetTableQuery; rows: Record<string, unknown>[]; timeColumn: string; total: number; workflowError: string | null }) {
+  if (phase === "running") return <EmptyStatePanel description="任务完成后自动读取结果。" icon={Clock3} iconClassName="animate-pulse" title="查询正在运行" />;
+  if (phase === "failure") return workflowError ? <ErrorPanel message={workflowError} /> : <EmptyStatePanel description="任务已结束，但没有生成可读取的查询结果。" icon={CircleX} title="查询执行失败" />;
+  if (phase === "idle") return <EmptyStatePanel description="完成 DSL 后执行查询。" icon={FileQuestion} title="尚未执行查询" />;
   if (error) return <ErrorPanel message={error} />;
   if (loading && !columns.length) return <EmptyStatePanel description="DuckDB 正在读取查询结果。" icon={Loader2} iconClassName="animate-spin" title="正在读取 Parquet" />;
-  if (running) return <EmptyStatePanel description="任务完成后自动读取结果。" icon={Clock3} iconClassName="animate-pulse" title="查询正在运行" />;
-  if (state === "SUCCESS") return total || rows.length ? <ParquetDataTable columns={columns} loading={loading} pagination={{ page, pageSize, total, onPageChange: onPage, onPageSizeChange: onPageSize }} query={{ value: query, onChange: onQuery }} rows={rows} timeColumn={timeColumn} /> : <EmptyStatePanel description="当前条件下没有数据行。" icon={Database} title="查询结果为空" />;
-  return <EmptyStatePanel description="完成 DSL 后执行查询。" icon={FileQuestion} title="尚未执行查询" />;
+  return total || rows.length ? <ParquetDataTable columns={columns} loading={loading} pagination={{ page, pageSize, total, onPageChange: onPage, onPageSizeChange: onPageSize }} query={{ value: query, onChange: onQuery }} rows={rows} timeColumn={timeColumn} /> : <EmptyStatePanel description="当前条件下没有数据行。" icon={Database} title="查询结果为空" />;
 }
 
 function identifier(value: string) { return `"${value.replace(/"/g, "\"\"")}"`; }

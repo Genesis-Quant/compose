@@ -197,7 +197,7 @@ export default function AdminPage() {
       </SectionCard>
     </div>
 
-    <section className="space-y-4"><div><h2 className="text-lg font-semibold">工作流实例</h2><p className="mt-1 text-sm text-muted-foreground">查看、筛选和管理全部应用的工作流及其 Task。</p></div><WorkflowPanel /></section>
+    <section className="space-y-4"><div><h2 className="text-lg font-semibold">工作流实例</h2><p className="mt-1 text-sm text-muted-foreground">查看、筛选和管理全部应用的工作流及其 Task。</p></div><WorkflowPanel showUsername /></section>
 
     <SectionCard title="用户权限" description="管理员可以查看全站任务并使用本管理面板。">
       <Table>

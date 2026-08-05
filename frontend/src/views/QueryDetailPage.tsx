@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { queryApi } from "@/assets/lib/query";
@@ -9,6 +9,7 @@ import AnalysisWorkspace from "@/components/layout/AnalysisWorkspace";
 import RequestBodyDialog from "@/components/modal/RequestBodyDialog";
 import TaskLogModal from "@/components/modal/TaskLogModal";
 import QueryControlsPanel from "@/components/panel/QueryControlsPanel";
+import ErrorPanel from "@/components/panel/ErrorPanel";
 import QueryResultPanel from "@/components/panel/QueryResultPanel";
 import type { FactorQuery } from "@/types/factor";
 import { defaultQueryParameters, type QueryCatalog, type QueryProject } from "@/types/query";
@@ -31,6 +32,7 @@ export default function QueryDetailPage() {
   const [parametersOpen, setParametersOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState("");
+  const loadRequest = useRef(0);
   const activeWorkflow = workflowInstanceId !== null && !terminalStates.has(workflowState);
   const running = submitting || activeWorkflow;
 
@@ -41,38 +43,50 @@ export default function QueryDetailPage() {
 
   useEffect(() => {
     if (!workflowInstanceId || terminalStates.has(workflowState)) return undefined;
+    let disposed = false;
+    let polling = false;
     const timer = window.setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
         const workflow = await workflowsApi.status(workflowInstanceId);
+        const nextProject = terminalStates.has(workflow.state) ? await queryApi.getProject(projectId) : null;
+        if (disposed) return;
+        setError("");
         setWorkflowState(workflow.state);
         setWorkflowError(workflow.error);
-        if (terminalStates.has(workflow.state)) {
+        if (nextProject) {
           setStopping(false);
           window.clearInterval(timer);
-          const nextProject = await queryApi.getProject(projectId);
           setProject(nextProject);
         }
-      } catch (reason) { setError(errorMessage(reason)); }
+      } catch (reason) { if (!disposed) setError(errorMessage(reason)); }
+      finally { polling = false; }
     }, 2500);
-    return () => window.clearInterval(timer);
+    return () => { disposed = true; window.clearInterval(timer); };
   }, [projectId, workflowInstanceId, workflowState]);
 
   async function load() {
+    const requestId = ++loadRequest.current;
     setLoading(true);
     setError("");
     try {
       const [nextProject, nextCatalog] = await Promise.all([queryApi.getProject(projectId), queryApi.catalog()]);
+      if (requestId !== loadRequest.current) return;
       setProject(nextProject);
       setCatalog(nextCatalog);
+      setStopping(false);
+      setWorkflowInstanceId(null);
+      setWorkflowState("IDLE");
+      setWorkflowError(null);
       if (nextProject.current) {
-        setStopping(false);
         setParameters(nextProject.current.parameters);
         setWorkflowInstanceId(nextProject.current.workflow_instance_id);
         setWorkflowState(nextProject.current.state);
         setWorkflowError(nextProject.current.error);
       }
-    } catch (reason) { setError(errorMessage(reason)); }
-    finally { setLoading(false); }
+    } catch (reason) { if (requestId === loadRequest.current) setError(errorMessage(reason)); }
+    finally { if (requestId === loadRequest.current) setLoading(false); }
   }
 
   async function runQuery() {
@@ -120,7 +134,8 @@ export default function QueryDetailPage() {
     } catch (reason) { setError(errorMessage(reason)); }
   }
 
-  if (loading || !project || !catalog) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
+  if (loading) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
+  if (!project || !catalog) return <div className="mx-auto w-full max-w-xl py-20"><ErrorPanel message={error} /></div>;
 
   return <>
     <AnalysisWorkspace backTo="/query" sidebar={<QueryControlsPanel activeWorkflow={activeWorkflow} catalog={catalog} dslValid={dslValid} parameters={parameters} project={project} projectId={projectId} stopping={stopping} submitting={submitting} workflowInstanceId={workflowInstanceId} workflowState={workflowState} onLogs={openTaskLog} onParameters={setParameters} onRun={runQuery} onShowParameters={() => setParametersOpen(true)} onStop={stopQuery} onValidity={setDslValid} />} sidebarLabel="查询参数">

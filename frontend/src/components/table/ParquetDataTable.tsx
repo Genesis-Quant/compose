@@ -40,6 +40,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 type DataRow = Record<string, unknown>;
 type ResolvedColumnConfig = Required<Pick<ParquetColumnConfig, "filter" | "label" | "sortable" | "type">> & ParquetColumnConfig;
 type ParquetColumnMeta = { config: ResolvedColumnConfig };
+type NumericRange = { max: number; min: number };
 
 const parquetTableFeatures = tableFeatures({
   cellSpanningFeature,
@@ -83,6 +84,7 @@ export type ParquetDataTableProps = {
 export default function ParquetDataTable({ columnConfigs, columns: suppliedColumns, containerClassName = "max-h-[calc(100vh-12rem)]", formatColumnName: suppliedNameFormatter, loading = false, pagination, query, rows, timeColumn = "time" }: ParquetDataTableProps) {
   const columnIds = useMemo(() => suppliedColumns?.length ? [...suppliedColumns] : Object.keys(rows[0] ?? {}), [rows, suppliedColumns]);
   const configs = useMemo(() => resolveColumnConfigs(columnIds, rows, columnConfigs ?? emptyColumnConfigs, suppliedNameFormatter, timeColumn), [columnConfigs, columnIds, rows, suppliedNameFormatter, timeColumn]);
+  const numericRanges = useMemo(() => resolveNumericRanges(columnIds, configs, rows), [columnIds, configs, rows]);
   const defaults = useMemo(() => createDefaultState(columnIds, configs), [columnIds, configs]);
   const stateSignature = columnIds.map((id) => `${id}:${configs[id].pin ?? ""}:${configs[id].defaultVisible ?? ""}`).join("\u0000");
   const appliedStateSignature = useRef("");
@@ -260,7 +262,7 @@ export default function ParquetDataTable({ columnConfigs, columns: suppliedColum
         const config = cell.column.columnDef.meta?.config;
         const pinned = cell.column.getIsPinned();
         const title = formatCellText(cell.getValue(), config);
-        return <TableCell className={cn("max-w-80 truncate px-3 font-mono text-xs tabular-nums", isNumeric(config) && "text-right", pinned && "bg-card group-hover/row:bg-muted", pinned === "start" && cell.column.getIsLastColumn("start") && "shadow-[4px_0_6px_-5px_rgb(0_0_0/0.35)]", pinned === "end" && cell.column.getIsFirstColumn("end") && "shadow-[-4px_0_6px_-5px_rgb(0_0_0/0.35)]")} colSpan={cell.getColSpan()} key={cell.id} rowSpan={cell.getRowSpan()} style={pinnedColumnStyle(cell.column)} title={title}><table.FlexRender cell={cell} /></TableCell>;
+        return <TableCell className={cn("max-w-80 truncate px-3 font-mono text-xs tabular-nums", isNumeric(config) && "text-right", pinned && "bg-card group-hover/row:bg-muted", pinned === "start" && cell.column.getIsLastColumn("start") && "shadow-[4px_0_6px_-5px_rgb(0_0_0/0.35)]", pinned === "end" && cell.column.getIsFirstColumn("end") && "shadow-[-4px_0_6px_-5px_rgb(0_0_0/0.35)]")} colSpan={cell.getColSpan()} key={cell.id} rowSpan={cell.getRowSpan()} style={{ ...pinnedColumnStyle(cell.column), ...numericCellStyle(cell.getValue(), numericRanges[cell.column.id]) }} title={title}><table.FlexRender cell={cell} /></TableCell>;
       })}</TableRow>)
 : <TableRow><TableCell className="h-28 text-center text-sm text-muted-foreground" colSpan={Math.max(1, table.getVisibleLeafColumns().length)}>没有符合当前筛选条件的数据</TableCell></TableRow>}</TableBody>
     </Table>
@@ -380,6 +382,43 @@ function sortFunction(config: ResolvedColumnConfig) {
 }
 
 function isNumeric(config: ResolvedColumnConfig | undefined) { return config?.type === "integer" || config?.type === "number"; }
+function resolveNumericRanges(columnIds: string[], configs: Record<string, ResolvedColumnConfig>, rows: DataRow[]) {
+  const ranges: Record<string, NumericRange> = {};
+  for (const id of columnIds) {
+    if (!isNumeric(configs[id])) continue;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const row of rows) {
+      const value = numericValue(row[id]);
+      if (value === null) continue;
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+    }
+    if (Number.isFinite(min) && Number.isFinite(max)) ranges[id] = { min, max };
+  }
+  return ranges;
+}
+
+function numericCellStyle(value: unknown, range: NumericRange | undefined): CSSProperties {
+  const number = numericValue(value);
+  if (number === null || !range) return {};
+  const ratio = range.max === range.min ? 0.5 : Math.min(1, Math.max(0, (number - range.min) / (range.max - range.min)));
+  const blue = [59, 130, 246];
+  const red = [239, 68, 68];
+  const color = blue.map((channel, index) => Math.round(channel + (red[index] - channel) * ratio));
+  const overlay = `rgba(${color.join(", ")}, 0.2)`;
+  return { backgroundColor: "var(--panel)", backgroundImage: `linear-gradient(${overlay}, ${overlay})` };
+}
+
+function numericValue(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "bigint") {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  return null;
+}
+
 function looksLikeEnum(column: string) { return /(^|_)(direction|side|state|status|type)$/.test(column) || column.endsWith("status") || column.endsWith("state"); }
 function maximumTableHeight() { return Math.max(minimumTableHeight, window.innerHeight - 96); }
 function clampTableHeight(height: number) { return Math.round(Math.min(maximumTableHeight(), Math.max(minimumTableHeight, height))); }

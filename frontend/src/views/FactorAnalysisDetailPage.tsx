@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import IconLoaderCircle from "~icons/lucide/loader-circle";
 
@@ -12,6 +12,7 @@ import VersionCompareDialog from "@/components/modal/VersionCompareDialog";
 import TaskLogModal from "@/components/modal/TaskLogModal";
 import FactorAnalysisControlsPanel from "@/components/panel/FactorAnalysisControlsPanel";
 import FactorAnalysisResultsPanel from "@/components/panel/FactorAnalysisResultsPanel";
+import ErrorPanel from "@/components/panel/ErrorPanel";
 import { analysisDsl, analysisSettings, applyAnalysisSettings, defaultAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion } from "@/types/factor";
 import { terminalStates } from "@/types/workflow";
 
@@ -31,6 +32,7 @@ export default function FactorAnalysisDetailPage() {
   const [dslValid, setDslValid] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -38,11 +40,13 @@ export default function FactorAnalysisDetailPage() {
   const [remark, setRemark] = useState("");
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState("");
+  const loadRequest = useRef(0);
   const currentVersion = useMemo(() => versions.find((version) => version.version === selectedVersion), [selectedVersion, versions]);
   const displayedWorkflowInstanceId = currentVersion?.workflow_instance_id ?? workflowInstanceId;
   const displayedParameters = useMemo(() => normalizeAnalysisParameters(currentVersion?.parameters ?? parameters), [currentVersion, parameters]);
   const resultParameters = useMemo(() => normalizeAnalysisParameters(currentVersion?.parameters ?? project?.draft?.parameters ?? parameters), [currentVersion, parameters, project?.draft?.parameters]);
   const displayedState = currentVersion ? "SUCCESS" : workflowState;
+  const displayedWorkflowError = currentVersion ? null : workflowError;
   const readOnly = currentVersion !== undefined;
   const activeWorkflow = !currentVersion && workflowInstanceId !== null && !terminalStates.has(workflowState);
   const running = submitting || activeWorkflow;
@@ -59,33 +63,45 @@ export default function FactorAnalysisDetailPage() {
 
   useEffect(() => {
     if (!workflowInstanceId || terminalStates.has(workflowState)) return undefined;
+    let disposed = false;
+    let polling = false;
     const timer = window.setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
         const workflow = await workflowsApi.status(workflowInstanceId);
+        const refreshed = terminalStates.has(workflow.state) ? await factorApi.getProject(projectId) : null;
+        if (disposed) return;
+        setError("");
         setWorkflowState(workflow.state);
         setWorkflowError(workflow.error);
-        if (terminalStates.has(workflow.state)) {
+        if (refreshed) {
           setStopping(false);
           window.clearInterval(timer);
-          const refreshed = await factorApi.getProject(projectId);
           setProject(refreshed);
         }
-      } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+      } catch (reason) { if (!disposed) setError(reason instanceof Error ? reason.message : String(reason)); }
+      finally { polling = false; }
     }, 2500);
-    return () => window.clearInterval(timer);
+    return () => { disposed = true; window.clearInterval(timer); };
   }, [projectId, workflowInstanceId, workflowState]);
 
   async function load() {
+    const requestId = ++loadRequest.current;
     setLoading(true);
     setError("");
     try {
       const [nextProject, nextVersions, nextCatalog] = await Promise.all([factorApi.getProject(projectId), factorApi.listVersions(projectId), factorApi.catalog()]);
+      if (requestId !== loadRequest.current) return;
       setProject(nextProject);
       setVersions(nextVersions);
       setCatalog(nextCatalog);
       setStopping(false);
+      setSelectedVersion(null);
+      setWorkflowInstanceId(null);
+      setWorkflowState("IDLE");
+      setWorkflowError(null);
       if (nextProject.draft) {
-        setSelectedVersion(null);
         setParameters(normalizeAnalysisParameters(nextProject.draft.parameters));
         setWorkflowInstanceId(nextProject.draft.workflow_instance_id);
         setWorkflowState(nextProject.draft.state);
@@ -94,8 +110,8 @@ export default function FactorAnalysisDetailPage() {
         setSelectedVersion(nextVersions[0].version);
         setParameters(nextVersions[0].parameters);
       }
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
-    finally { setLoading(false); }
+    } catch (reason) { if (requestId === loadRequest.current) setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { if (requestId === loadRequest.current) setLoading(false); }
   }
 
   async function analyze() {
@@ -149,8 +165,8 @@ export default function FactorAnalysisDetailPage() {
   }
 
   async function saveVersion() {
-    if (!workflowInstanceId || !metrics) return;
-    setSubmitting(true);
+    if (!workflowInstanceId || !metrics || saving) return;
+    setSaving(true);
     setError("");
     try {
       const saved = await factorApi.saveVersion(projectId, workflowInstanceId, remark, metrics);
@@ -162,8 +178,9 @@ export default function FactorAnalysisDetailPage() {
       setRemark("");
       setWorkflowInstanceId(null);
       setWorkflowState("IDLE");
+      setWorkflowError(null);
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
-    finally { setSubmitting(false); }
+    finally { setSaving(false); }
   }
 
   function continueFromVersion() {
@@ -172,10 +189,13 @@ export default function FactorAnalysisDetailPage() {
     setSelectedVersion(null);
     setWorkflowInstanceId(project?.draft?.workflow_instance_id ?? null);
     setWorkflowState(project?.draft?.state ?? "IDLE");
+    setWorkflowError(project?.draft?.error ?? null);
     setMetrics(null);
+    setError("");
   }
 
-  if (loading || !project || !catalog) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><IconLoaderCircle className="animate-spin text-primary" width={26} height={26} /></div>;
+  if (loading) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><IconLoaderCircle className="animate-spin text-primary" width={26} height={26} /></div>;
+  if (!project || !catalog) return <div className="mx-auto w-full max-w-xl py-20"><ErrorPanel message={error} /></div>;
 
   return <>
     <AnalysisWorkspace backTo="/factor" sidebar={<FactorAnalysisControlsPanel
@@ -203,7 +223,7 @@ export default function FactorAnalysisDetailPage() {
       onStop={stopAnalysis}
       onParameters={setParameters}
       onValidity={setDslValid}
-      onVersion={(version) => { setSelectedVersion(version); setMetrics(null); }}
+      onVersion={(version) => { setSelectedVersion(version); setMetrics(null); setError(""); }}
     />}>
       <FactorAnalysisResultsPanel
         displayedParameters={resultParameters}
@@ -212,7 +232,7 @@ export default function FactorAnalysisDetailPage() {
         error={error}
         readOnly={readOnly}
         running={running}
-        workflowError={workflowError}
+        workflowError={displayedWorkflowError}
         onMetrics={captureMetrics}
       />
     </AnalysisWorkspace>
@@ -220,7 +240,7 @@ export default function FactorAnalysisDetailPage() {
       latestVersion={project.latest_version}
       open={saveOpen}
       remark={remark}
-      submitting={submitting}
+      submitting={saving}
       onClose={() => setSaveOpen(false)}
       onRemark={setRemark}
       onSave={saveVersion}

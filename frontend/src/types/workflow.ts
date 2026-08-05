@@ -44,6 +44,7 @@ export type WorkflowActionResponse = {
 };
 
 export type WorkflowListItem = WorkflowInformation & {
+  project_id: number | null;
   owner_username: string;
   payload: {
     start_parameters: Record<string, string>;

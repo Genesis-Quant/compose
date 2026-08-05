@@ -92,7 +92,7 @@ export function defaultBacktestCodesQuery(datasetQuery?: Pick<FactorQuery, "star
 export const defaultBacktestParameters = (): BacktestParameters => ({
   name: null,
   config: { cash: 1_000_000, commission: 0.0003, tax: 0.001, matchingMode: 2, enableMinimumPerTransactionFee: true },
-  codes_query: null,
+  codes_query: defaultBacktestCodesQuery(),
   dataset_query: {
     start_date: "2020-01-01",
     end_date: "2026-01-01",

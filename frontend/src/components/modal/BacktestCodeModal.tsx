@@ -1,7 +1,7 @@
 import { Braces, FunctionSquare, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { validCallback } from "@/assets/lib/backtest";
+import { utilsCompletions, validCallback } from "@/assets/lib/backtest";
 import DslEditor from "@/components/editor/DslEditor";
 import DolphinDbEditor from "@/components/editor/DolphinDbEditor";
 import { TextField } from "@/components/field/FormFields";
@@ -34,15 +34,9 @@ export default function BacktestCodeModal({ catalog, onChange, onPanelChange, on
   const hasCodesQuery = parameters.codes_query !== null;
   const codesDsl = backtestCodesDsl(parameters);
   const datasetDsl = backtestDatasetDsl(parameters);
-  const callbacksValid = useMemo(
-    () => Object.entries(parameters.callbacks).every(
-      ([name, source]) => validCallback(name as CallbackName, source)
-    ),
-    [parameters.callbacks]
-  );
-
+  const callbackCompletions = useMemo(() => utilsCompletions(parameters.utils), [parameters.utils]);
   useEffect(() => { setCodesDslValid(true); setDatasetDslValid(true); }, [parameters.codes_query, parameters.dataset_query]);
-  useEffect(() => onValidityChange((!hasCodesQuery || codesDslValid) && datasetDslValid && callbacksValid), [callbacksValid, codesDslValid, datasetDslValid, hasCodesQuery, onValidityChange]);
+  useEffect(() => onValidityChange((!hasCodesQuery || codesDslValid) && datasetDslValid), [codesDslValid, datasetDslValid, hasCodesQuery, onValidityChange]);
 
   function updateCodesQuery(codesQuery: FactorQuery) { onChange({ ...parameters, codes_query: codesQuery }); }
   function updateDatasetQuery(datasetQuery: FactorQuery) { onChange({ ...parameters, dataset_query: datasetQuery }); }
@@ -57,7 +51,7 @@ export default function BacktestCodeModal({ catalog, onChange, onPanelChange, on
         <TabsContent className="min-h-0 flex-1 overflow-hidden p-3 pt-2" value="utils"><DolphinDbEditor modelPath={`dolphindb://backtest/${projectId}/utils.dos`} onChange={(utils) => onChange({ ...parameters, utils })} readOnly={readOnly} value={parameters.utils} /></TabsContent>
         <TabsContent className="min-h-0 flex-1 overflow-hidden p-3 pt-2" value="callbacks">
           <div className="flex h-full min-h-0 flex-col"><div className="mb-2 flex items-end justify-between gap-2"><div className="space-y-1"><Label>生命周期回调</Label><Select value={callback} onValueChange={(value) => setCallback(value as CallbackName)}><SelectTrigger className="w-56 font-mono"><SelectValue /></SelectTrigger><SelectContent>{callbackNames.map((name) => <SelectItem className="font-mono" key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></div><Badge variant={validCallback(callback, parameters.callbacks[callback]) ? "secondary" : "destructive"}>{validCallback(callback, parameters.callbacks[callback]) ? "签名正确" : "签名错误"}</Badge></div>
-          <div className="min-h-0 flex-1"><DolphinDbEditor modelPath={`dolphindb://backtest/${projectId}/callbacks/${callback}.dos`} onChange={updateCallback} readOnly={readOnly} value={parameters.callbacks[callback]} /></div></div>
+          <div className="min-h-0 flex-1"><DolphinDbEditor completions={callbackCompletions} modelPath={`dolphindb://backtest/${projectId}/callbacks/${callback}.dos`} onChange={updateCallback} readOnly={readOnly} value={parameters.callbacks[callback]} /></div></div>
         </TabsContent>
       </Tabs>
     </LargeDialogContent>
