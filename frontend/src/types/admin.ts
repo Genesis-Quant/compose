@@ -38,6 +38,11 @@ export type AdminProcessInstance = {
   duration: string | null;
 };
 
+export type AdminIncrementalWorker = {
+  name: string;
+  description: string;
+};
+
 export type AdminOverview = {
   users: { total: number; administrators: number };
   workflow_instances: { total: number; active: number; success: number; failure: number };
@@ -51,6 +56,7 @@ export type AdminOverview = {
     worker_groups: string[];
     workers: AdminWorker[];
     recent_instances: AdminProcessInstance[];
+    incremental_workers: AdminIncrementalWorker[];
   };
 };
 
@@ -64,6 +70,8 @@ export type AdminActionResponse = {
 export type IncrementalUpdateRun = {
   message: string;
   job_id: string;
+  workers: string[];
+  channel: string;
   record_id: number;
   workflow_instance_id: number;
   project_code: number;

@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { backtestApi } from "@/assets/lib/backtest";
 import { BacktestAnalytics, backtestTableTimeColumns, type BacktestTableName, type BacktestTablePage, type PortfolioPoint } from "@/assets/lib/backtestAnalysis";
@@ -192,7 +192,8 @@ function PerformanceTable({ report }: { report: QuantStatsReport }) {
     { label: "胜率", value: report.winRate, format: "percent" },
     { label: "收益/痛苦比率", value: report.gainToPainRatio }
   ] satisfies Metric[];
-  return <div className="max-h-[440px] overflow-auto rounded-md border"><Table><TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur"><TableRow><TableHead>指标</TableHead><TableHead className="text-right">策略</TableHead></TableRow></TableHeader><TableBody>{rows.map((row) => <TableRow key={row.label}><TableCell>{row.label}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.value, row.format)}</TableCell></TableRow>)}</TableBody></Table></div>;
+  const groupedRows = Array.from({ length: Math.ceil(rows.length / 3) }, (_, index) => rows.slice(index * 3, index * 3 + 3));
+  return <div className="max-h-[440px] overflow-auto rounded-md border"><Table><TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur"><TableRow>{[0, 1, 2].map((column) => <Fragment key={column}><TableHead>指标</TableHead><TableHead className="text-right">策略</TableHead></Fragment>)}</TableRow></TableHeader><TableBody>{groupedRows.map((group, rowIndex) => <TableRow key={rowIndex}>{[0, 1, 2].map((column) => { const metric = group[column]; return <Fragment key={metric?.label ?? column}><TableCell>{metric?.label ?? ""}</TableCell><TableCell className="text-right font-mono tabular-nums">{metric ? formatMetric(metric.value, metric.format) : ""}</TableCell></Fragment>; })}</TableRow>)}</TableBody></Table></div>;
 }
 
 function DrawdownTable({ rows }: { rows: DrawdownPeriod[] }) {

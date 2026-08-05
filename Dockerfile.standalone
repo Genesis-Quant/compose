@@ -94,7 +94,8 @@ RUN uv pip install \
         /opt/arena-runtime/wheels/arena_runtime-*.whl \
     && "${VIRTUAL_ENV}/bin/python" --version \
     && "${VIRTUAL_ENV}/bin/core-manage" --help \
-    && "${VIRTUAL_ENV}/bin/core-manage" apps factor --help
+    && "${VIRTUAL_ENV}/bin/core-manage" apps factor --help \
+    && "${VIRTUAL_ENV}/bin/core-manage" messages send --help
 
 RUN printf '%s\n' \
         'Defaults env_keep += "PROD ARENA_SHARED_CLOUD DATA_START_DATE INDEX_CODES TUSHARE_TOKEN"' \

@@ -45,7 +45,10 @@ export type WorkflowActionResponse = {
 
 export type WorkflowListItem = WorkflowInformation & {
   owner_username: string;
-  payload: Record<string, unknown>;
+  payload: {
+    start_parameters: Record<string, string>;
+    input_json?: Record<string, unknown>;
+  };
   requested_outputs: string[];
 };
 

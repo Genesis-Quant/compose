@@ -1,7 +1,7 @@
 import { Activity, ChevronDown, ChevronUp, Clock3, Eye, Loader2, RefreshCw, Square, Terminal } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { formatDuration, workflowApplicationNames, workflowsApi } from "@/assets/lib/workflows";
+import { formatDuration, resolveDurationSeconds, workflowApplicationNames, workflowsApi } from "@/assets/lib/workflows";
 import { AppPagination } from "@/components/pagination/AppPagination";
 import SchedulerStateBadge, { schedulerStateLabel } from "@/components/badge/SchedulerStateBadge";
 import TaskLogModal from "@/components/modal/TaskLogModal";
@@ -29,6 +29,7 @@ export default function WorkflowPanel({ onTotalChange }: { onTotalChange?: (tota
   const [error, setError] = useState("");
   const [detailsWorkflow, setDetailsWorkflow] = useState<WorkflowListItem | null>(null);
   const [selectedTask, setSelectedTask] = useState<SelectedTask | null>(null);
+  const [now, setNow] = useState(Date.now());
   const totalPages = Math.max(1, Math.ceil((result?.total ?? 0) / pageSize));
 
   const load = useCallback(async (background = false) => {
@@ -61,6 +62,12 @@ export default function WorkflowPanel({ onTotalChange }: { onTotalChange?: (tota
     const timer = window.setInterval(() => load(true), 5000);
     return () => window.clearInterval(timer);
   }, [containsActiveWorkflow, load]);
+  useEffect(() => {
+    if (!containsActiveWorkflow) return undefined;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [containsActiveWorkflow]);
 
   function changeApplication(value: string) { setApplication(value as "all" | WorkflowApplication); setPage(1); }
   function changeState(value: string) { setState(value as StateFilter); setPage(1); }
@@ -82,21 +89,22 @@ export default function WorkflowPanel({ onTotalChange }: { onTotalChange?: (tota
     {error ? <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div> : null}
     <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="flex flex-wrap items-end gap-3"><Filter label="应用"><Select value={application} onValueChange={changeApplication}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部应用</SelectItem><SelectItem value="query">Query</SelectItem><SelectItem value="factor">Factor</SelectItem><SelectItem value="backtest">Backtest</SelectItem><SelectItem value="incremental">Incremental</SelectItem></SelectContent></Select></Filter><Filter label="状态"><Select value={state} onValueChange={changeState}><SelectTrigger className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="active">运行中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="failure">失败</SelectItem></SelectContent></Select></Filter></div><div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">运行中的工作流每 5 秒自动更新</span><Button variant="outline" disabled={refreshing} onClick={() => load(true)}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button></div></div>
     <Card className="gap-0 py-0 shadow-sm"><CardContent className="p-0"><Table><TableHeader><TableRow><TableHead className="w-36 px-4">Workflow ID</TableHead><TableHead className="w-28">应用</TableHead><TableHead className="w-40">状态</TableHead><TableHead>工作流</TableHead><TableHead className="min-w-96">Tasks</TableHead><TableHead className="w-36">开始时间</TableHead><TableHead className="w-24 text-right">耗时</TableHead><TableHead className="w-24 px-4 text-right">操作</TableHead></TableRow></TableHeader><TableBody>
-      {result?.items.map((workflow) => <WorkflowRow key={workflow.workflow_instance_id} stopping={stoppingWorkflowId === workflow.workflow_instance_id} workflow={workflow} onDetails={() => setDetailsWorkflow(workflow)} onLogs={(taskInstanceId) => setSelectedTask({ workflowInstanceId: workflow.workflow_instance_id, taskInstanceId })} onStop={() => stopWorkflow(workflow.workflow_instance_id)} />)}
+      {result?.items.map((workflow) => <WorkflowRow key={workflow.workflow_instance_id} now={now} stopping={stoppingWorkflowId === workflow.workflow_instance_id} workflow={workflow} onDetails={() => setDetailsWorkflow(workflow)} onLogs={(taskInstanceId) => setSelectedTask({ workflowInstanceId: workflow.workflow_instance_id, taskInstanceId })} onStop={() => stopWorkflow(workflow.workflow_instance_id)} />)}
       {loading ? <WorkflowTableState><Loader2 className="animate-spin" />正在读取工作流...</WorkflowTableState> : null}
       {!loading && !result?.items.length ? <WorkflowTableState><Activity />当前筛选下暂无工作流实例</WorkflowTableState> : null}
     </TableBody></Table></CardContent></Card>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground">共 {result?.total ?? 0} 个工作流实例</p><AppPagination page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={setPage} onPageSizeChange={setPageSize} /></div>
-    <WorkflowDetailsModal open={detailsWorkflow !== null} workflow={detailsWorkflow} onOpenChange={(open) => { if (!open) setDetailsWorkflow(null); }} />
+    <WorkflowDetailsModal now={now} open={detailsWorkflow !== null} workflow={detailsWorkflow} onOpenChange={(open) => { if (!open) setDetailsWorkflow(null); }} />
     <TaskLogModal open={selectedTask !== null} workflowInstanceId={selectedTask?.workflowInstanceId ?? null} taskInstanceId={selectedTask?.taskInstanceId ?? null} onOpenChange={(open) => { if (!open) setSelectedTask(null); }} />
   </div>;
 }
 
 function Filter({ children, label }: { children: React.ReactNode; label: string }) { return <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">{label}</Label>{children}</div>; }
 
-function WorkflowRow({ onDetails, onLogs, onStop, stopping, workflow }: { onDetails: () => void; onLogs: (taskInstanceId: number) => void; onStop: () => void; stopping: boolean; workflow: WorkflowListItem }) {
+function WorkflowRow({ now, onDetails, onLogs, onStop, stopping, workflow }: { now: number; onDetails: () => void; onLogs: (taskInstanceId: number) => void; onStop: () => void; stopping: boolean; workflow: WorkflowListItem }) {
   const active = !terminalStates.has(workflow.state);
-  return <TableRow><TableCell className="px-4 font-mono text-xs font-semibold">{workflow.workflow_instance_id}</TableCell><TableCell><Badge variant="secondary" className="font-mono uppercase">{workflowApplicationNames[workflow.application]}</Badge></TableCell><TableCell><SchedulerStateBadge state={workflow.state} /></TableCell><TableCell><div className="max-w-72 truncate text-xs font-medium">{workflow.workflow_name}</div><div className="mt-1 truncate font-mono text-[10px] text-muted-foreground">Definition #{workflow.workflow_definition_code} · Record #{workflow.record_id}</div></TableCell><TableCell><WorkflowTaskCapsules tasks={workflow.tasks} error={workflow.tasks_error} onLogs={onLogs} /></TableCell><TableCell><WorkflowStartTime value={workflow.started_at ?? workflow.created_at} /></TableCell><TableCell className="text-right"><span className="inline-flex items-center gap-1.5 font-mono text-xs"><Clock3 className="size-3 text-muted-foreground" />{formatDuration(workflow.duration_seconds)}</span></TableCell><TableCell className="px-4"><div className="flex justify-end gap-1">{active ? <Button title={stopping ? "正在终止工作流" : "终止工作流"} aria-label={stopping ? "正在终止工作流" : "终止工作流"} size="icon-sm" variant="destructive" disabled={stopping} onClick={onStop}>{stopping ? <Loader2 className="animate-spin" /> : <Square />}</Button> : null}<Button title="查看详情" aria-label="查看工作流详情" size="icon-sm" variant="ghost" onClick={onDetails}><Eye /></Button></div></TableCell></TableRow>;
+  const duration = resolveDurationSeconds(workflow.duration_seconds, workflow.started_at, workflow.finished_at, active, now);
+  return <TableRow><TableCell className="px-4 font-mono text-xs font-semibold">{workflow.workflow_instance_id}</TableCell><TableCell><Badge variant="secondary" className="font-mono uppercase">{workflowApplicationNames[workflow.application]}</Badge></TableCell><TableCell><SchedulerStateBadge state={workflow.state} /></TableCell><TableCell><div className="max-w-72 truncate text-xs font-medium">{workflow.workflow_name}</div><div className="mt-1 truncate font-mono text-[10px] text-muted-foreground">Definition #{workflow.workflow_definition_code} · Record #{workflow.record_id}</div></TableCell><TableCell><WorkflowTaskCapsules tasks={workflow.tasks} error={workflow.tasks_error} onLogs={onLogs} /></TableCell><TableCell><WorkflowStartTime value={workflow.started_at ?? workflow.created_at} /></TableCell><TableCell className="text-right"><span className="inline-flex items-center gap-1.5 font-mono text-xs"><Clock3 className="size-3 text-muted-foreground" />{formatDuration(duration)}</span></TableCell><TableCell className="px-4"><div className="flex justify-end gap-1">{active ? <Button title={stopping ? "正在终止工作流" : "终止工作流"} aria-label={stopping ? "正在终止工作流" : "终止工作流"} size="icon-sm" variant="destructive" disabled={stopping} onClick={onStop}>{stopping ? <Loader2 className="animate-spin" /> : <Square />}</Button> : null}<Button title="查看详情" aria-label="查看工作流详情" size="icon-sm" variant="ghost" onClick={onDetails}><Eye /></Button></div></TableCell></TableRow>;
 }
 
 function WorkflowTaskCapsules({ error, onLogs, tasks }: { error?: string | null; onLogs: (taskInstanceId: number) => void; tasks: WorkflowListItem["tasks"] }) {

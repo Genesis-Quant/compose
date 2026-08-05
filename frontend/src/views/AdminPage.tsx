@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { adminApi } from "@/assets/lib/admin";
 import { errorMessage } from "@/assets/lib/utils";
 import { PageHero } from "@/components/bar/PageHero";
+import IncrementalWorkerDialog from "@/components/modal/IncrementalWorkerDialog";
 import WorkflowPanel from "@/components/panel/WorkflowPanel";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
@@ -34,6 +35,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [action, setAction] = useState<Action>(null);
+  const [incrementalDialogOpen, setIncrementalDialogOpen] = useState(false);
+  const [selectedIncrementalWorkers, setSelectedIncrementalWorkers] = useState<string[]>([]);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -58,13 +61,24 @@ export default function AdminPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  function openIncrementalDialog() {
+    setError("");
+    setNotice("");
+    setSelectedIncrementalWorkers(
+      overview?.scheduler.incremental_workers.map((worker) => worker.name) ?? []
+    );
+    setIncrementalDialogOpen(true);
+  }
+
   async function runIncrementalUpdate() {
+    if (!selectedIncrementalWorkers.length) return;
     setAction("incremental");
     setError("");
     setNotice("");
     try {
-      const result = await adminApi.runIncrementalUpdate();
-      setNotice(`${result.message}，Job ID：${result.job_id}`);
+      const result = await adminApi.runIncrementalUpdate(selectedIncrementalWorkers);
+      setIncrementalDialogOpen(false);
+      setNotice(`${result.message}，${result.workers.length} 个 Worker，Job ID：${result.job_id}`);
       await load(true);
     } catch (reason) {
       setError(errorMessage(reason));
@@ -131,8 +145,8 @@ export default function AdminPage() {
           <ManagementAction
             icon={<Database />}
             title="运行增量更新"
-            description="并行提交全部增量数据更新 Task，并由 tushare-api Task Group 控制并发。"
-            action={<Button disabled={action !== null || !overview?.scheduler.available} onClick={runIncrementalUpdate}>{action === "incremental" ? <Loader2 className="animate-spin" /> : <Play />}运行</Button>}
+            description="选择需要更新的数据，Task 并行入队并由 tushare-api Task Group 控制并发。"
+            action={<Button disabled={action !== null || !overview?.scheduler.available || !overview.scheduler.incremental_workers.length} onClick={openIncrementalDialog}><Play />运行</Button>}
           />
           <ManagementAction
             icon={<Workflow />}
@@ -192,6 +206,17 @@ export default function AdminPage() {
       </Table>
       <EmptyState loading={loading} empty={!users.length} />
     </SectionCard>
+
+    <IncrementalWorkerDialog
+      error={error}
+      open={incrementalDialogOpen}
+      selected={selectedIncrementalWorkers}
+      submitting={action === "incremental"}
+      workers={overview?.scheduler.incremental_workers ?? []}
+      onOpenChange={setIncrementalDialogOpen}
+      onSelectedChange={setSelectedIncrementalWorkers}
+      onSubmit={runIncrementalUpdate}
+    />
   </div>;
 }
 
