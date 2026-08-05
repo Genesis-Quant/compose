@@ -4,6 +4,8 @@ import { getInstanceByDom, init, use, type EChartsCoreOption } from "echarts/cor
 import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
+import { formatChartTooltipValue } from "@/assets/lib/chart";
+
 use([BarChart, LineChart, DataZoomComponent, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 const RESIZE_SETTLE_MS = 100;
@@ -29,7 +31,7 @@ export default function EChart({ height, onDataZoomChange, option }: { height: n
 
   useEffect(() => {
     const chart = container.current ? getInstanceByDom(container.current) : undefined;
-    chart?.setOption(option, { notMerge: true });
+    chart?.setOption(withTooltipValueFormatter(option), { notMerge: true });
   }, [option]);
 
   useEffect(() => {
@@ -40,4 +42,12 @@ export default function EChart({ height, onDataZoomChange, option }: { height: n
   }, [onDataZoomChange]);
 
   return <div ref={container} style={{ height }} />;
+}
+
+function withTooltipValueFormatter(option: EChartsCoreOption): EChartsCoreOption {
+  const tooltip = (option as { tooltip?: unknown }).tooltip;
+  if (!tooltip || Array.isArray(tooltip) || typeof tooltip !== "object") return option;
+  const tooltipOption = tooltip as Record<string, unknown>;
+  if (tooltipOption.show === false || typeof tooltipOption.valueFormatter === "function") return option;
+  return { ...option, tooltip: { ...tooltipOption, valueFormatter: formatChartTooltipValue } };
 }

@@ -3,8 +3,24 @@ import type { DslCatalog } from "@/types/factor";
 import { callbackParameters, type BacktestOutput, type BacktestOutputName, type BacktestParameters, type BacktestProject, type BacktestProjectPage, type BacktestSummary, type BacktestVersion, type BacktestWorkflowSubmitted, type CallbackName } from "@/types/backtest";
 
 export function validCallback(callback: CallbackName, source: string) {
-  const signature = callbackParameters[callback].replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*");
-  return new RegExp(`\\bdef\\s+${callback}\\s*\\(\\s*${signature}\\s*\\)\\s*\\{`).test(source);
+  const match = new RegExp(`\\bdef\\s+${callback}\\s*\\(([^)]*)\\)\\s*\\{`).exec(source);
+  if (!match) return false;
+
+  const parameters = match[1].trim()
+    ? match[1].split(",").map((parameter) => parameter.trim())
+    : [];
+  const expectedCount = callbackParameters[callback].split(",").length;
+  if (parameters.length !== expectedCount) return false;
+
+  const names: string[] = [];
+  for (const parameter of parameters) {
+    const parameterMatch = /^(?:(mutable)\s+)?([A-Za-z][A-Za-z0-9_]*)$/.exec(parameter);
+    if (!parameterMatch) return false;
+    names.push(parameterMatch[2]);
+  }
+
+  return parameters[0]?.startsWith("mutable ") === true
+    && new Set(names).size === names.length;
 }
 
 export const backtestApi = {

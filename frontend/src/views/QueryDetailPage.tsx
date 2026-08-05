@@ -18,7 +18,6 @@ export default function QueryDetailPage() {
   const projectId = Number(useParams().projectId);
   const navigate = useNavigate();
   const [project, setProject] = useState<QueryProject | null>(null);
-  const [projects, setProjects] = useState<QueryProject[]>([]);
   const [catalog, setCatalog] = useState<QueryCatalog | null>(null);
   const [parameters, setParameters] = useState<FactorQuery>(defaultQueryParameters());
   const [dslValid, setDslValid] = useState(true);
@@ -50,9 +49,8 @@ export default function QueryDetailPage() {
         if (terminalStates.has(workflow.state)) {
           setStopping(false);
           window.clearInterval(timer);
-          const [nextProject, page] = await Promise.all([queryApi.getProject(projectId), queryApi.listProjects(1, 5)]);
+          const nextProject = await queryApi.getProject(projectId);
           setProject(nextProject);
-          setProjects(page.items);
         }
       } catch (reason) { setError(errorMessage(reason)); }
     }, 2500);
@@ -63,9 +61,8 @@ export default function QueryDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const [nextProject, page, nextCatalog] = await Promise.all([queryApi.getProject(projectId), queryApi.listProjects(1, 5), queryApi.catalog()]);
+      const [nextProject, nextCatalog] = await Promise.all([queryApi.getProject(projectId), queryApi.catalog()]);
       setProject(nextProject);
-      setProjects(page.items);
       setCatalog(nextCatalog);
       if (nextProject.current) {
         setStopping(false);
@@ -117,9 +114,8 @@ export default function QueryDetailPage() {
     if (!workflowInstanceId) return;
     try {
       const workflow = await workflowsApi.status(workflowInstanceId);
-      const task = workflow.tasks.find((item) => item.task_instance_id !== null);
-      if (!task?.task_instance_id) throw new Error("工作流尚未创建 Task instance");
-      setLogTaskInstanceId(task.task_instance_id);
+      const task = workflow.tasks.find((item) => item.task_instance_id !== null) ?? workflow.tasks[0];
+      setLogTaskInstanceId(task?.task_instance_id ?? null);
       setLogsOpen(true);
     } catch (reason) { setError(errorMessage(reason)); }
   }
@@ -127,7 +123,7 @@ export default function QueryDetailPage() {
   if (loading || !project || !catalog) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
 
   return <>
-    <AnalysisWorkspace backTo="/query" sidebar={<QueryControlsPanel activeWorkflow={activeWorkflow} catalog={catalog} dslValid={dslValid} parameters={parameters} project={project} projectId={projectId} projects={projects} stopping={stopping} submitting={submitting} workflowInstanceId={workflowInstanceId} workflowState={workflowState} onLogs={openTaskLog} onParameters={setParameters} onRun={runQuery} onShowParameters={() => setParametersOpen(true)} onStop={stopQuery} onValidity={setDslValid} />} sidebarLabel="查询参数">
+    <AnalysisWorkspace backTo="/query" sidebar={<QueryControlsPanel activeWorkflow={activeWorkflow} catalog={catalog} dslValid={dslValid} parameters={parameters} project={project} projectId={projectId} stopping={stopping} submitting={submitting} workflowInstanceId={workflowInstanceId} workflowState={workflowState} onLogs={openTaskLog} onParameters={setParameters} onRun={runQuery} onShowParameters={() => setParametersOpen(true)} onStop={stopQuery} onValidity={setDslValid} />} sidebarLabel="查询参数">
       <QueryResultPanel error={error} running={running} state={workflowState} timeColumn="time" workflowError={workflowError} workflowInstanceId={workflowInstanceId} />
     </AnalysisWorkspace>
     <RequestBodyDialog endpoint={`/api/v1/query/projects/${projectId}/queries`} open={parametersOpen} value={parameters} onClose={() => setParametersOpen(false)} />

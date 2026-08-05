@@ -35,6 +35,12 @@ export function formatAxisLabel(value: number, format: AxisFormat = "decimal") {
   return `${Number(display.toFixed(format === "percent" ? 2 : 4))}${format === "percent" ? "%" : ""}`;
 }
 
+export function formatChartTooltipValue(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return value === null || value === undefined ? "—" : String(value);
+  if (value === 0) return "0";
+  return Math.abs(value) < 1 ? value.toPrecision(3) : value.toFixed(3);
+}
+
 function niceInterval(value: number) {
   const power = 10 ** Math.floor(Math.log10(value));
   const fraction = value / power;

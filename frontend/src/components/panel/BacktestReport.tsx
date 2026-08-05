@@ -96,7 +96,7 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
     return () => { cancelled = true; };
   }, [endDate, error, loading, startDate, tableName, tablePage, tablePageSize, tableQuery, tableRequestKey, workflowInstanceId]);
 
-  const fullReport = useMemo(() => createReport(portfolio, annualTradingDays, riskFreeRate), [annualTradingDays, portfolio, riskFreeRate]);
+  const fullReport = useMemo(() => createReport(portfolio, annualTradingDays, riskFreeRate, true), [annualTradingDays, portfolio, riskFreeRate]);
   useEffect(() => {
     if (!fullReport) return;
     onSummary({ totalReturn: fullReport.totalReturn, annualReturn: fullReport.cagr, annualVolatility: fullReport.volatility, sharpeRatio: fullReport.sharpe, maxDrawdown: fullReport.maxDrawdown, dailyWinningRate: fullReport.winRate });
@@ -104,7 +104,7 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
 
   const selectedPortfolio = useMemo(() => portfolio.filter((row) => (!startDate || row.time >= startDate) && (!endDate || row.time <= endDate)), [endDate, portfolio, startDate]);
   const rangePoints = useMemo(() => portfolio.map((row) => ({ time: row.time, value: row.dailyReturn })), [portfolio]);
-  const report = useMemo(() => createReport(selectedPortfolio, annualTradingDays, riskFreeRate), [annualTradingDays, riskFreeRate, selectedPortfolio]);
+  const report = useMemo(() => createReport(selectedPortfolio, annualTradingDays, riskFreeRate, selectedPortfolio[0]?.time === portfolio[0]?.time), [annualTradingDays, portfolio, riskFreeRate, selectedPortfolio]);
 
   useEffect(() => {
     if (!onChartRanges || !report) return;
@@ -207,7 +207,7 @@ function renderParquetContent({ data, error, loading, name, onPage, onPageSize, 
   return <ParquetDataTable columnConfigs={backtestTableConfigs[name]} columns={data.columns} containerClassName="max-h-[calc(100dvh-20rem)]" loading={loading} pagination={{ page, pageSize, total: data.total, onPageChange: onPage, onPageSizeChange: onPageSize }} query={{ value: query, onChange: onQuery }} rows={data.rows} timeColumn={backtestTableTimeColumns[name]} />;
 }
 
-function createReport(rows: PortfolioPoint[], periods: number, riskFreeRate: number) { return rows.length ? quantStatsReport(rows.map((row) => ({ time: row.time, value: row.dailyReturn ?? 0 })), periods, riskFreeRate) : null; }
+function createReport(rows: PortfolioPoint[], periods: number, riskFreeRate: number, excludeInitialReturn: boolean) { return rows.length ? quantStatsReport(rows.map((row) => ({ time: row.time, value: row.dailyReturn ?? 0 })), periods, riskFreeRate, excludeInitialReturn) : null; }
 
 function feeMetrics(rows: PortfolioPoint[]): Metric[] {
   const fees = rows.map((row) => row.dailyFee).filter((value): value is number => value !== null && value >= 0);

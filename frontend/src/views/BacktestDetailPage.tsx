@@ -129,9 +129,8 @@ export default function BacktestDetailPage() {
     if (!displayedWorkflowInstanceId) return;
     try {
       const workflow = await workflowsApi.status(displayedWorkflowInstanceId);
-      const task = workflow.tasks.find((item) => item.task_instance_id !== null);
-      if (!task?.task_instance_id) throw new Error("工作流尚未创建 Task instance");
-      setLogTaskInstanceId(task.task_instance_id);
+      const task = workflow.tasks.find((item) => item.task_instance_id !== null) ?? workflow.tasks[0];
+      setLogTaskInstanceId(task?.task_instance_id ?? null);
       setLogsOpen(true);
     } catch (reason) {
       setError(errorMessage(reason));
@@ -178,4 +177,4 @@ export default function BacktestDetailPage() {
   </>;
 }
 
-function validBacktestContract(parameters: BacktestParameters) { return parameters.codes_query !== null && parameters.dataset_query.start_date.length > 0 && parameters.dataset_query.end_date.length > 0 && parameters.dataset_query.factors.length + Object.keys(parameters.dataset_query.derivatives).length > 0 && Object.keys(parameters.callbacks).length > 0; }
+function validBacktestContract(parameters: BacktestParameters) { return parameters.dataset_query.start_date.length > 0 && parameters.dataset_query.end_date.length > 0 && parameters.dataset_query.factors.length + Object.keys(parameters.dataset_query.derivatives).length > 0 && Object.keys(parameters.callbacks).length > 0; }

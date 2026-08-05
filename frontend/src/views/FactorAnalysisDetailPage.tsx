@@ -140,9 +140,8 @@ export default function FactorAnalysisDetailPage() {
     if (!displayedWorkflowInstanceId) return;
     try {
       const workflow = await workflowsApi.status(displayedWorkflowInstanceId);
-      const task = workflow.tasks.find((item) => item.task_instance_id !== null);
-      if (!task?.task_instance_id) throw new Error("工作流尚未创建 Task instance");
-      setLogTaskInstanceId(task.task_instance_id);
+      const task = workflow.tasks.find((item) => item.task_instance_id !== null) ?? workflow.tasks[0];
+      setLogTaskInstanceId(task?.task_instance_id ?? null);
       setLogsOpen(true);
     } catch (reason) {
       setError(errorMessage(reason));

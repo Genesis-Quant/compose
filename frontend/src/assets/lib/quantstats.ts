@@ -29,17 +29,20 @@ export type QuantStatsReport = {
   netValue: RollingPoint[];
 };
 
-export function quantStatsReport(rows: DatedReturn[], periods = 252, riskFreeRate = 0): QuantStatsReport {
+export function quantStatsReport(rows: DatedReturn[], periods = 252, riskFreeRate = 0, excludeInitialReturn = false): QuantStatsReport {
   const returns = prepareReturns(rows.map((row) => row.value));
+  const volatilityReturns = excludeInitialReturn ? returns.slice(1) : returns;
+  const annualReturn = cagr(returns, periods);
+  const annualVolatility = volatility(volatilityReturns, periods);
   const drawdown = toDrawdownSeries(returns).map((value, index) => ({ time: rows[index].time, value }));
   return {
     totalReturn: compoundedReturn(returns),
-    cagr: cagr(returns, periods),
-    sharpe: sharpe(returns, riskFreeRate, periods),
+    cagr: annualReturn,
+    sharpe: sharpe(annualReturn, annualVolatility, riskFreeRate),
     sortino: sortino(returns, riskFreeRate, periods),
-    volatility: volatility(returns, periods),
+    volatility: annualVolatility,
     maxDrawdown: maxDrawdown(returns),
-    calmar: calmar(returns, periods),
+    calmar: calmar(annualReturn, maxDrawdown(returns)),
     payoffRatio: payoffRatio(returns),
     averageReturn: mean(returns),
     maxConsecutiveLosses: consecutiveLosses(returns),
@@ -81,12 +84,12 @@ export function cumulativeReturns(returns: number[]) {
 
 export function cagr(returns: number[], periods = 252) {
   if (!returns.length) return Number.NaN;
-  return Math.abs(compoundedReturn(returns) + 1) ** (periods / returns.length) - 1;
+  const growth = compoundedReturn(returns) + 1;
+  return growth > 0 ? growth ** (periods / returns.length) - 1 : Number.NaN;
 }
 
-export function sharpe(returns: number[], riskFreeRate = 0, periods = 252) {
-  const excess = prepareReturns(returns, riskFreeRate, periods);
-  return mean(excess) / sampleStandardDeviation(excess) * Math.sqrt(periods);
+export function sharpe(annualReturn: number, annualVolatility: number, riskFreeRate = 0) {
+  return annualVolatility === 0 ? Number.NaN : (annualReturn - riskFreeRate) / annualVolatility;
 }
 
 export function sortino(returns: number[], riskFreeRate = 0, periods = 252) {
@@ -95,7 +98,7 @@ export function sortino(returns: number[], riskFreeRate = 0, periods = 252) {
   return downside === 0 ? Number.NaN : mean(excess) / downside * Math.sqrt(periods);
 }
 
-export function volatility(returns: number[], periods = 252) { return sampleStandardDeviation(prepareReturns(returns)) * Math.sqrt(periods); }
+export function volatility(returns: number[], periods = 252) { return populationStandardDeviation(prepareReturns(returns)) * Math.sqrt(periods); }
 
 export function toDrawdownSeries(returns: number[]) {
   const prices = preparePrices(returns);
@@ -113,7 +116,7 @@ export function maxDrawdown(returns: number[]) {
   return drawdown.length ? Math.min(0, ...drawdown) : 0;
 }
 
-export function calmar(returns: number[], periods = 252) { return cagr(prepareReturns(returns), periods) / Math.abs(maxDrawdown(prepareReturns(returns))); }
+export function calmar(annualReturn: number, drawdown: number) { return drawdown === 0 ? Number.NaN : annualReturn / Math.abs(drawdown); }
 
 export function payoffRatio(returns: number[]) {
   const prepared = prepareReturns(returns);
@@ -260,6 +263,12 @@ function sampleStandardDeviation(values: number[]) {
   if (values.length < 2) return Number.NaN;
   const average = mean(values);
   return Math.sqrt(values.reduce((total, value) => total + (value - average) ** 2, 0) / (values.length - 1));
+}
+
+function populationStandardDeviation(values: number[]) {
+  if (values.length < 2) return Number.NaN;
+  const average = mean(values);
+  return Math.sqrt(values.reduce((total, value) => total + (value - average) ** 2, 0) / values.length);
 }
 
 function quantile(values: number[], probability: number) {

@@ -17,7 +17,7 @@ export type BacktestSummary = Record<string, number | null>;
 export type BacktestParameters = {
   name: string | null;
   config: Record<string, unknown>;
-  codes_query: FactorQuery;
+  codes_query: FactorQuery | null;
   dataset_query: FactorQuery;
   adj: "hfq" | "qfq" | null;
   annual_trading_days: number;
@@ -70,12 +70,10 @@ export type BacktestVersion = {
 export type BacktestOutputName = "trade_details" | "daily_positions" | "daily_portfolios" | "return_summary" | "daily_trading_statistics" | "engine_stat";
 export type BacktestOutput = { name: BacktestOutputName; filename: string; size: number; modified_at: string };
 
-export const defaultBacktestParameters = (): BacktestParameters => ({
-  name: null,
-  config: { cash: 1_000_000, commission: 0.0003, tax: 0.001, matchingMode: 2 },
-  codes_query: {
-    start_date: "2020-01-01",
-    end_date: "2026-01-01",
+export function defaultBacktestCodesQuery(datasetQuery?: Pick<FactorQuery, "start_date" | "end_date">): FactorQuery {
+  return {
+    start_date: datasetQuery?.start_date ?? "2020-01-01",
+    end_date: datasetQuery?.end_date ?? "2026-01-01",
     lookback: "P0D",
     codes: [],
     factors: [],
@@ -88,7 +86,13 @@ export const defaultBacktestParameters = (): BacktestParameters => ({
       }
     },
     filters: ["stock_pool_member"]
-  },
+  };
+}
+
+export const defaultBacktestParameters = (): BacktestParameters => ({
+  name: null,
+  config: { cash: 1_000_000, commission: 0.0003, tax: 0.001, matchingMode: 2, enableMinimumPerTransactionFee: true },
+  codes_query: null,
   dataset_query: {
     start_date: "2020-01-01",
     end_date: "2026-01-01",
@@ -247,7 +251,7 @@ def solveRiskParity(covariance, tolerance=0.000000000001, maxIterations=1000l) {
 });
 
 export function backtestCodesDsl(parameters: BacktestParameters): DslDocument {
-  const { factors, derivatives, filters } = parameters.codes_query;
+  const { factors, derivatives, filters } = parameters.codes_query ?? { factors: [], derivatives: {}, filters: [] };
   return { factors, derivatives, filters };
 }
 
@@ -257,6 +261,7 @@ export function backtestDatasetDsl(parameters: BacktestParameters): DslDocument 
 }
 
 export function updateBacktestCodesDsl(parameters: BacktestParameters, dsl: DslDocument): BacktestParameters {
+  if (parameters.codes_query === null) return parameters;
   return { ...parameters, codes_query: { ...parameters.codes_query, ...dsl } };
 }
 
