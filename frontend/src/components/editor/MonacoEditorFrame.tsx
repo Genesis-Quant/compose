@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/assets/lib/utils";
 import { Button } from "@/ui/button";
+import "./MonacoEditorFrame.less";
 
 export default function MonacoEditorFrame({ children, className }: { children: ReactNode; className?: string }) {
   const [fullScreen, setFullScreen] = useState(false);
@@ -23,10 +24,10 @@ export default function MonacoEditorFrame({ children, className }: { children: R
   }
 
   const label = fullScreen ? "退出全屏" : "全屏编辑";
-  return <div className={cn("relative h-full overflow-hidden rounded-md border", className, fullScreen && "h-dvh w-dvw min-h-0 rounded-none border-0 bg-background")} ref={frame}>
+  return <div className={cn("monaco-editor-frame relative h-full min-h-0 overflow-hidden rounded-md border bg-background", className)} ref={frame}>
     <Button aria-label={label} className="absolute top-2 right-4 z-20 bg-background/90 shadow-sm backdrop-blur" onClick={toggleFullScreen} size="icon-sm" title={label} variant="outline">
       {fullScreen ? <Minimize2 /> : <Maximize2 />}
     </Button>
-    <div className="h-full min-h-0 overflow-hidden">{children}</div>
+    <div className="h-full min-h-0 overflow-hidden bg-background">{children}</div>
   </div>;
 }

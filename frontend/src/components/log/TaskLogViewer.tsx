@@ -1,7 +1,8 @@
 import { ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { cn } from "@/assets/lib/utils";
+import AnimatedCollapse from "@/components/motion/AnimatedCollapse";
 import { groupTaskLogSections, parseTaskLog, type ParsedTaskLogLine, type TaskLogGroup, type TaskLogLevel } from "@/assets/lib/taskLogs";
 
 const LEVEL_STYLES: Record<TaskLogLevel, { badge: string; line: string }> = {
@@ -30,17 +31,18 @@ export default function TaskLogViewer({ emptyMessage, message }: { emptyMessage:
 
 function TaskLogSection({ group, usesLongTimestamp }: { group: TaskLogGroup; usesLongTimestamp: boolean }) {
   const [open, setOpen] = useState(group.title === "Task Output");
+  const contentId = useId();
   const firstLine = group.lines[0]?.lineNumber;
   const lastLine = group.lines.at(-1)?.lineNumber;
-  return <details className="group/section border-y border-border/60 bg-background/20 open:bg-transparent" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-    <summary className="sticky top-0 z-[1] flex cursor-pointer list-none items-center gap-2 bg-muted/85 px-3 py-2 font-sans text-xs font-semibold backdrop-blur transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
-      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open/section:rotate-90" />
+  return <section className={cn("border-y border-border/60 transition-colors", open ? "bg-transparent" : "bg-background/20")}>
+    <button aria-controls={contentId} aria-expanded={open} className="sticky top-0 z-[1] flex w-full cursor-pointer items-center gap-2 bg-muted/85 px-3 py-2 text-left font-sans text-xs font-semibold backdrop-blur transition-colors hover:bg-muted" type="button" onClick={() => setOpen((value) => !value)}>
+      <ChevronRight className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-90")} />
       <span>{group.title}</span>
       <span className="font-mono text-[10px] font-normal text-muted-foreground">{group.lines.length.toLocaleString()} 行</span>
       {firstLine && lastLine ? <span className="ml-auto font-mono text-[10px] font-normal text-muted-foreground">L{firstLine}–{lastLine}</span> : null}
-    </summary>
-    <TaskLogRows lines={group.lines} usesLongTimestamp={usesLongTimestamp} />
-  </details>;
+    </button>
+    <AnimatedCollapse id={contentId} open={open}><TaskLogRows lines={group.lines} usesLongTimestamp={usesLongTimestamp} /></AnimatedCollapse>
+  </section>;
 }
 
 function TaskLogRows({ lines, usesLongTimestamp }: { lines: ParsedTaskLogLine[]; usesLongTimestamp: boolean }) {

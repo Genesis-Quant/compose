@@ -17,7 +17,7 @@ type AppStore = {
   logout: () => void;
 };
 
-const storedTheme: Theme = localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light";
+const storedTheme: Theme = localStorage.getItem(themeStorageKey) === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = storedTheme;
 
 export const useAppStore = create<AppStore>((set, get) => ({

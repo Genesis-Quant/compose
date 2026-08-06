@@ -11,7 +11,7 @@ import TaskLogModal from "@/components/modal/TaskLogModal";
 import QueryControlsPanel from "@/components/panel/QueryControlsPanel";
 import ErrorPanel from "@/components/panel/ErrorPanel";
 import QueryResultPanel from "@/components/panel/QueryResultPanel";
-import type { FactorQuery } from "@/types/factor";
+import { isFactorQuery, type FactorQuery } from "@/types/factor";
 import { defaultQueryParameters, type QueryCatalog, type QueryProject } from "@/types/query";
 import { terminalStates } from "@/types/workflow";
 
@@ -141,7 +141,7 @@ export default function QueryDetailPage() {
     <AnalysisWorkspace backTo="/query" sidebar={<QueryControlsPanel activeWorkflow={activeWorkflow} catalog={catalog} dslValid={dslValid} parameters={parameters} project={project} projectId={projectId} stopping={stopping} submitting={submitting} workflowInstanceId={workflowInstanceId} workflowState={workflowState} onLogs={openTaskLog} onParameters={setParameters} onRun={runQuery} onShowParameters={() => setParametersOpen(true)} onStop={stopQuery} onValidity={setDslValid} />} sidebarLabel="查询参数">
       <QueryResultPanel error={error} running={running} state={workflowState} timeColumn="time" workflowError={workflowError} workflowInstanceId={workflowInstanceId} />
     </AnalysisWorkspace>
-    <RequestBodyDialog endpoint={`/api/v1/query/projects/${projectId}/queries`} open={parametersOpen} value={parameters} onClose={() => setParametersOpen(false)} />
+    <RequestBodyDialog editable endpoint={`/api/v1/query/projects/${projectId}/queries`} open={parametersOpen} value={parameters} validate={(value) => isFactorQuery(value) ? null : "查询参数结构不完整。"} onApply={setParameters} onClose={() => setParametersOpen(false)} />
     <TaskLogModal open={logsOpen} workflowInstanceId={workflowInstanceId} taskInstanceId={logTaskInstanceId} onOpenChange={setLogsOpen} />
   </>;
 }

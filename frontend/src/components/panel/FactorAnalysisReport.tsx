@@ -4,7 +4,7 @@ import IconDatabase from "~icons/lucide/database";
 import IconLoaderCircle from "~icons/lucide/loader-circle";
 
 import { factorApi } from "@/assets/lib/factor";
-import { chartRange, formatAxisLabel } from "@/assets/lib/chart";
+import { chartRange, formatAxisLabel, thresholdMarkLine } from "@/assets/lib/chart";
 import { errorMessage } from "@/assets/lib/utils";
 import {
   FactorAnalytics,
@@ -358,7 +358,7 @@ function longShortOption(rows: LongShortPoint[], theme: string, ranges?: DualCha
 function groupStatisticsOption(rows: GroupStatistic[], theme: string, range?: ChartRange) {
   const option: Record<string, unknown> = baseOption(theme, rows.map((row) => row.group), [
     { name: "平均收益", type: "bar", data: rows.map((row) => row.mean), itemStyle: { color: "#2563eb", opacity: 0.72 }, barMaxWidth: 34 },
-    { name: "p 值", type: "line", yAxisIndex: 1, data: rows.map((row) => row.pValue), symbolSize: 7, lineStyle: { width: 1.8 }, color: "#d97706" }
+    { name: "p 值", type: "line", yAxisIndex: 1, data: rows.map((row) => row.pValue), symbolSize: 7, lineStyle: { width: 1.8 }, color: "#d97706", markLine: thresholdMarkLine(theme, "p = 0.05", 0.05) }
   ], range);
   option.xAxis = { ...(option.xAxis as Record<string, unknown>), boundaryGap: true };
   option.yAxis = [axis(theme, true, range, "percent"), { ...axis(theme, false), min: 0, max: 1 }];

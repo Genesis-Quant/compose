@@ -1,10 +1,10 @@
 import { Loader2 } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { backtestApi } from "@/assets/lib/backtest";
 import { BacktestAnalytics, backtestTableTimeColumns, type BacktestTableName, type BacktestTablePage, type PortfolioPoint } from "@/assets/lib/backtestAnalysis";
 import { backtestTableConfigs } from "@/assets/lib/backtestTable";
-import { chartRange, formatAxisLabel } from "@/assets/lib/chart";
+import { chartRange, chartRangeIncluding, formatAxisLabel, thresholdMarkLine } from "@/assets/lib/chart";
 import { quantStatsReport, type DrawdownPeriod, type QuantStatsReport } from "@/assets/lib/quantstats";
 import DateRangeBar from "@/components/bar/DateRangeBar";
 import EChart from "@/components/chart/EChart";
@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 const tableTabs = [
   { value: "trade_details", label: "交易记录" },
   { value: "daily_positions", label: "每日持仓" },
+  { value: "daily_portfolios", label: "组合资产" },
   { value: "daily_trading_statistics", label: "交易统计" }
 ] as const;
 
@@ -57,6 +58,12 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
   const tableName = isBacktestTableName(selectedTab) ? selectedTab : null;
   const tableRequestKey = createTableRequestKey(workflowInstanceId, tableName, startDate, endDate, tablePage, tablePageSize, tableQuery);
   const [tableLoadedKey, setTableLoadedKey] = useState("");
+
+  const loadRawTable = useCallback(async (name: BacktestTableName) => {
+    const instance = analytics.current;
+    if (!instance) throw new Error("回测结果尚未加载");
+    return instance.rawTable(name);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +129,7 @@ export default function BacktestReport({ activeTab, annualTradingDays = 252, cha
   else if (!report) overview = <div className="rounded-md border py-10 text-center text-sm text-muted-foreground">所选日期范围内暂无回测数据</div>;
   else overview = <ReportOverview chartRanges={chartRanges} portfolio={selectedPortfolio} report={report} theme={theme} />;
 
-  const tableContent = tableName ? renderParquetContent({ data: tableData, error: tableLoadedKey === tableRequestKey ? tableError : "", loading: tableLoading || tableLoadedKey !== tableRequestKey, name: tableName, page: tablePage, pageSize: tablePageSize, query: tableQuery, onPage: setTablePage, onPageSize: (nextPageSize) => { setTablePage(1); setTablePageSize(nextPageSize); }, onQuery: (nextQuery) => { setTablePage(1); setTableQuery(nextQuery); } }) : null;
+  const tableContent = tableName ? renderParquetContent({ data: tableData, download: { fileName: `backtest-${workflowInstanceId}-${tableName}.xlsx`, loadRows: () => loadRawTable(tableName) }, error: tableLoadedKey === tableRequestKey ? tableError : "", loading: tableLoading || tableLoadedKey !== tableRequestKey, name: tableName, page: tablePage, pageSize: tablePageSize, query: tableQuery, onPage: setTablePage, onPageSize: (nextPageSize) => { setTablePage(1); setTablePageSize(nextPageSize); }, onQuery: (nextQuery) => { setTablePage(1); setTableQuery(nextQuery); } }) : null;
 
   return <Tabs value={selectedTab} onValueChange={(value) => { setTablePage(1); setTableQuery(emptyParquetTableQuery()); setLocalTab(value); onActiveTabChange?.(value); }} className="relative">
     {showTabs ? <div className="sticky top-20 z-30 mb-2 w-fit pb-1"><TabsList><TabsTrigger value="overview">回测概览</TabsTrigger>{tableTabs.map((tab) => <TabsTrigger disabled={loading || Boolean(error)} key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}</TabsList></div> : null}
@@ -201,11 +208,11 @@ function DrawdownTable({ rows }: { rows: DrawdownPeriod[] }) {
   return <div className="overflow-auto rounded-md border"><Table><TableHeader className="bg-muted/70"><TableRow><TableHead>开始</TableHead><TableHead>谷底</TableHead><TableHead>结束</TableHead><TableHead className="text-right">天数</TableHead><TableHead className="text-right">最大回撤</TableHead><TableHead className="text-right">99% 最大回撤</TableHead></TableRow></TableHeader><TableBody>{rows.map((row) => <TableRow key={`${row.start}-${row.end}`}><TableCell>{row.start}</TableCell><TableCell>{row.valley}</TableCell><TableCell>{row.end}</TableCell><TableCell className="text-right tabular-nums">{row.days}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.maxDrawdownPercent / 100, "percent")}</TableCell><TableCell className="text-right font-mono tabular-nums">{formatMetric(row.maxDrawdown99Percent / 100, "percent")}</TableCell></TableRow>)}</TableBody></Table></div>;
 }
 
-function renderParquetContent({ data, error, loading, name, onPage, onPageSize, onQuery, page, pageSize, query }: { data: BacktestTablePage | null; error: string; loading: boolean; name: BacktestTableName; onPage: (page: number) => void; onPageSize: (pageSize: number) => void; onQuery: (query: ParquetTableQuery) => void; page: number; pageSize: number; query: ParquetTableQuery }): ReactNode {
+function renderParquetContent({ data, download, error, loading, name, onPage, onPageSize, onQuery, page, pageSize, query }: { data: BacktestTablePage | null; download: { fileName: string; loadRows: () => Promise<Record<string, unknown>[]> }; error: string; loading: boolean; name: BacktestTableName; onPage: (page: number) => void; onPageSize: (pageSize: number) => void; onQuery: (query: ParquetTableQuery) => void; page: number; pageSize: number; query: ParquetTableQuery }): ReactNode {
   if (loading && !data) return <div className="grid min-h-64 place-items-center rounded-md border bg-card"><Loader2 className="animate-spin text-primary" /></div>;
   if (error) return <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>;
   if (!data) return null;
-  return <ParquetDataTable columnConfigs={backtestTableConfigs[name]} columns={data.columns} containerClassName="max-h-[calc(100dvh-20rem)]" loading={loading} pagination={{ page, pageSize, total: data.total, onPageChange: onPage, onPageSizeChange: onPageSize }} query={{ value: query, onChange: onQuery }} rows={data.rows} timeColumn={backtestTableTimeColumns[name]} />;
+  return <ParquetDataTable columnConfigs={backtestTableConfigs[name]} columns={data.columns} containerClassName="max-h-[calc(100dvh-20rem)]" download={download} loading={loading} numericStats={data.numericStats} pagination={{ page, pageSize, total: data.total, onPageChange: onPage, onPageSizeChange: onPageSize }} query={{ value: query, onChange: onQuery }} rows={data.rows} timeColumn={backtestTableTimeColumns[name]} />;
 }
 
 function createReport(rows: PortfolioPoint[], periods: number, riskFreeRate: number, excludeInitialReturn: boolean) { return rows.length ? quantStatsReport(rows.map((row) => ({ time: row.time, value: row.dailyReturn ?? 0 })), periods, riskFreeRate, excludeInitialReturn) : null; }
@@ -239,5 +246,5 @@ function average(values: number[]) { return values.reduce((sum, value) => sum + 
 
 function portfolioOption(rows: PortfolioPoint[], report: QuantStatsReport, theme: string, ranges?: BacktestChartRanges) { return baseOption(theme, rows.map((row) => row.time), [{ name: "策略净值", type: "line", data: report.netValue.map((row) => row.value), showSymbol: false, lineStyle: { width: 2.2 }, color: "#2563eb" }, { name: "总资产", type: "line", yAxisIndex: 1, data: rows.map((row) => row.totalEquity), showSymbol: false, lineStyle: { width: 1.5 }, color: "#059669" }], ranges?.netValue, ranges?.totalEquity, true, "decimal", "integer"); }
 function drawdownOption(report: QuantStatsReport, theme: string, range?: ChartRange) { return baseOption(theme, report.drawdown.map((row) => row.time), [{ name: "回撤", type: "line", data: report.drawdown.map((row) => row.value), showSymbol: false, lineStyle: { width: 2 }, areaStyle: { opacity: 0.12 }, color: "#dc2626" }], range, undefined, false, "percent"); }
-function rollingSharpeOption(report: QuantStatsReport, theme: string, range?: ChartRange) { return baseOption(theme, report.rollingSharpe.map((row) => row.time), [{ name: "滚动夏普比率", type: "line", data: report.rollingSharpe.map((row) => row.value), showSymbol: false, lineStyle: { width: 1.8 }, color: "#d97706" }], range); }
+function rollingSharpeOption(report: QuantStatsReport, theme: string, range?: ChartRange) { return baseOption(theme, report.rollingSharpe.map((row) => row.time), [{ name: "滚动夏普比率", type: "line", data: report.rollingSharpe.map((row) => row.value), showSymbol: false, lineStyle: { width: 1.8 }, color: "#d97706", markLine: thresholdMarkLine(theme, "Sharpe = 0.5", 0.5) }], chartRangeIncluding(range, 0.5)); }
 function baseOption(theme: string, dates: string[], series: unknown[], primaryRange?: ChartRange, secondaryRange?: ChartRange, dualAxis = false, primaryFormat: AxisFormat = "decimal", secondaryFormat: AxisFormat = "decimal") { const color = theme === "dark" ? "#8996a5" : "#687771"; const line = theme === "dark" ? "rgba(160,184,210,.10)" : "rgba(24,66,54,.10)"; const axis = (range?: ChartRange, format: AxisFormat = "decimal") => ({ type: "value", scale: true, min: range?.min, max: range?.max, axisLabel: { color, fontSize: 9, formatter: (value: number) => formatAxisLabel(value, format) }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: line } } }); return { animationDuration: 180, grid: { left: 48, right: dualAxis ? 58 : 28, top: 42, bottom: 38, containLabel: true }, legend: { top: 0, left: 0, textStyle: { color, fontSize: 10 } }, tooltip: { trigger: "axis", backgroundColor: theme === "dark" ? "#151b24" : "#fff", borderColor: line, textStyle: { color: theme === "dark" ? "#eef4f7" : "#13201d", fontSize: 11 } }, xAxis: { type: "category", data: dates, boundaryGap: false, axisLine: { lineStyle: { color: line } }, axisLabel: { color, fontSize: 9, hideOverlap: true }, axisTick: { show: false } }, yAxis: dualAxis ? [axis(primaryRange, primaryFormat), { ...axis(secondaryRange, secondaryFormat), splitLine: { show: false } }] : axis(primaryRange, primaryFormat), series } as Record<string, unknown>; }

@@ -29,6 +29,7 @@ const backtestTabs = [
   { value: "overview", label: "回测概览" },
   { value: "trade_details", label: "交易记录" },
   { value: "daily_positions", label: "每日持仓" },
+  { value: "daily_portfolios", label: "组合资产" },
   { value: "daily_trading_statistics", label: "交易统计" }
 ];
 

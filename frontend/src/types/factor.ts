@@ -31,6 +31,38 @@ export type FactorAnalysisParameters = {
   market_value_column: string;
 };
 
+export function isFactorQuery(value: unknown): value is FactorQuery {
+  if (!isRecord(value)) return false;
+  return typeof value.start_date === "string"
+    && typeof value.end_date === "string"
+    && typeof value.lookback === "string"
+    && isStringArray(value.codes)
+    && isStringArray(value.factors)
+    && isRecord(value.derivatives)
+    && isStringArray(value.filters);
+}
+
+export function isFactorAnalysisParameters(value: unknown): value is FactorAnalysisParameters {
+  if (!isRecord(value)) return false;
+  return (value.codes_query === null || isFactorQuery(value.codes_query))
+    && isFactorQuery(value.dataset_query)
+    && isStringArray(value.factor_columns)
+    && isStringArray(value.return_columns)
+    && typeof value.n_groups === "number"
+    && Number.isFinite(value.n_groups)
+    && typeof value.preprocess === "boolean"
+    && typeof value.market_value_column === "string";
+}
+
+export function canNormalizeFactorAnalysisParameters(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return isFactorQuery(value.dataset_query)
+    && typeof value.n_groups === "number"
+    && Number.isFinite(value.n_groups)
+    && typeof value.preprocess === "boolean"
+    && typeof value.market_value_column === "string";
+}
+
 export type StockPoolCode = "000016.SH" | "000300.SH" | "000905.SH" | "000852.SH";
 export type PriceField = "close" | "close_hfq";
 export type MarketValueField = "circ_mv" | "total_mv";
@@ -183,7 +215,7 @@ export const stockPoolQuery = (stockPool: StockPoolCode, startDate: string, endD
 
 export const stockPoolCode = (parameters: FactorAnalysisParameters): StockPoolCode => {
   const member = parameters.codes_query?.derivatives.stock_pool_member ?? parameters.dataset_query.derivatives.stock_pool_member;
-  const factor = member?.fields.left;
+  const factor = isRecord(member) && isRecord(member.fields) ? member.fields.left : undefined;
   return stockPools.find((item) => item.factor === factor)?.value ?? "000300.SH";
 };
 
@@ -208,7 +240,9 @@ export const factorQueryDsl = (parameters: FactorAnalysisParameters): DslDocumen
 });
 
 export const applyAnalysisSettings = (parameters: FactorAnalysisParameters, dsl: DslDocument, settings = analysisSettings(parameters)): FactorAnalysisParameters => {
-  const factor = Object.keys(dsl.derivatives).at(-1) ?? "";
+  const configuredFactor = parameters.factor_columns.length === 1 ? parameters.factor_columns[0] : "";
+  const outputs = new Set([...dsl.factors, ...Object.keys(dsl.derivatives)]);
+  const factor = outputs.has(configuredFactor) ? configuredFactor : Object.keys(dsl.derivatives).at(-1) ?? dsl.factors.at(-1) ?? "";
   const poolFactor = stockPools.find((item) => item.value === settings.stockPool)?.factor ?? stockPools[1].factor;
   const returnColumns = analysisReturnColumns(settings.maxLags);
   const datasetQuery = {
@@ -233,7 +267,7 @@ export const applyAnalysisSettings = (parameters: FactorAnalysisParameters, dsl:
     factor_columns: factor ? [factor] : [],
     return_columns: returnColumns,
     n_groups: settings.nGroups,
-    preprocess: true,
+    preprocess: parameters.preprocess,
     market_value_column: settings.marketValueField
   };
 };
@@ -268,6 +302,45 @@ export const defaultAnalysisParameters = (): FactorAnalysisParameters => {
   return applyAnalysisSettings(parameters, analysisDsl(parameters), { stockPool: "000300.SH", priceField: "close_hfq", marketValueField: "circ_mv", nGroups: 5, maxLags: 10 });
 };
 
+export function normalizeAnalysisParameters(value: unknown): FactorAnalysisParameters {
+  const defaults = defaultAnalysisParameters();
+  if (!canNormalizeFactorAnalysisParameters(value)) return defaults;
+
+  const input = value as Record<string, unknown>;
+  const datasetQuery = input.dataset_query as FactorQuery;
+  const inputReturnColumns = input.return_columns;
+  const returnColumns = validAnalysisReturnColumns(inputReturnColumns)
+    ? inputReturnColumns
+    : defaults.return_columns;
+  const inputFactorColumns = input.factor_columns;
+  const factorColumnsValid = validAnalysisFactorColumns(inputFactorColumns, datasetQuery, returnColumns, input.market_value_column as string);
+  const factorColumns = factorColumnsValid
+    ? inputFactorColumns
+    : defaults.factor_columns;
+  const inputCodesQuery = input.codes_query;
+  const codesQuery = validAnalysisCodesQuery(inputCodesQuery)
+    ? inputCodesQuery
+    : stockPoolQuery("000300.SH", datasetQuery.start_date, datasetQuery.end_date);
+  const parameters: FactorAnalysisParameters = {
+    codes_query: codesQuery,
+    dataset_query: datasetQuery,
+    factor_columns: factorColumns,
+    return_columns: returnColumns,
+    n_groups: input.n_groups as number,
+    preprocess: input.preprocess as boolean,
+    market_value_column: input.market_value_column as string
+  };
+  const dsl = analysisDsl(parameters);
+  const factor = factorColumns[0];
+  const factorMissing = !(factor in dsl.derivatives) && !dsl.factors.includes(factor);
+  if (!factorColumnsValid || factorMissing) {
+    const defaultNode = defaults.dataset_query.derivatives[defaults.factor_columns[0]];
+    dsl.derivatives = { ...dsl.derivatives, [defaults.factor_columns[0]]: defaultNode };
+    parameters.factor_columns = [...defaults.factor_columns];
+  }
+  return applyAnalysisSettings(parameters, dsl, analysisSettings(parameters));
+}
+
 function forwardReturnDerivatives(priceField: PriceField, maxLags: number): Record<string, DerivativeNode> {
   return Object.fromEntries(analysisReturnColumns(maxLags).map((name, lag) => [name, {
     type: "DIRECT",
@@ -290,7 +363,53 @@ function shift(column: string, periods: number): DerivativeNode {
 
 function returnPriceField(parameters: FactorAnalysisParameters): PriceField {
   const returnNode = parameters.dataset_query.derivatives.ret0;
-  const division = returnNode?.fields.col as DerivativeNode | undefined;
-  const shiftedPrice = division?.fields.left as DerivativeNode | undefined;
-  return shiftedPrice?.fields.col === "close" ? "close" : "close_hfq";
+  const division = isRecord(returnNode) && isRecord(returnNode.fields) ? returnNode.fields.col : undefined;
+  const shiftedPrice = isRecord(division) && isRecord(division.fields) ? division.fields.left : undefined;
+  return isRecord(shiftedPrice) && isRecord(shiftedPrice.fields) && shiftedPrice.fields.col === "close" ? "close" : "close_hfq";
 }
+
+function validAnalysisFactorColumns(value: unknown, datasetQuery: FactorQuery, returnColumns: string[], marketValueColumn: string): value is string[] {
+  if (!isStringArray(value) || value.length !== 1) return false;
+  const factor = value[0];
+  return factor.length > 0
+    && factor.trim() === factor
+    && factor !== marketValueColumn
+    && !returnColumns.includes(factor)
+    && (datasetQuery.factors.includes(factor) || factor in datasetQuery.derivatives);
+}
+
+function validAnalysisReturnColumns(value: unknown): value is string[] {
+  return isStringArray(value)
+    && value.length >= 1
+    && value.length <= 60
+    && value.every((column, index) => column === `ret${index}`);
+}
+
+function validAnalysisCodesQuery(value: unknown): value is FactorQuery {
+  if (!isFactorQuery(value)) return false;
+  const derivativeNames = Object.keys(value.derivatives);
+  const member = value.derivatives.stock_pool_member;
+  if (!isRecord(member) || !isRecord(member.fields) || !isRecord(member.params)) return false;
+  const fieldNames = Object.keys(member.fields);
+  const factor = member.fields.left;
+  return [
+    value.lookback === "P0D",
+    value.codes.length === 0,
+    value.factors.length === 0,
+    derivativeNames.length === 1,
+    derivativeNames[0] === "stock_pool_member",
+    value.filters.length === 1,
+    value.filters[0] === "stock_pool_member",
+    member.type === "DIRECT",
+    member.op === "binary.gt",
+    fieldNames.length === 2,
+    fieldNames.includes("left"),
+    fieldNames.includes("right"),
+    member.fields.right === 0,
+    Object.keys(member.params).length === 0,
+    stockPools.some((pool) => pool.factor === factor)
+  ].every(Boolean);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
+function isStringArray(value: unknown): value is string[] { return Array.isArray(value) && value.every((item) => typeof item === "string"); }

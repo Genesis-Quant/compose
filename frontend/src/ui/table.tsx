@@ -15,7 +15,7 @@ function Table({ className, containerClassName, containerRef, containerStyle, ..
     <div
       ref={containerRef}
       data-slot="table-container"
-      className={cn("relative w-full overflow-x-auto", containerClassName)}
+      className={cn("component-fade-in relative w-full overflow-x-auto", containerClassName)}
       style={containerStyle}
     >
       <table

@@ -14,9 +14,11 @@ const applicationClasses: Record<WorkflowApplication, string> = {
 
 const applicationPaths: Partial<Record<WorkflowApplication, string>> = { query: "/query", factor: "/factor", backtest: "/backtest" };
 
-export default function WorkflowApplicationBadge({ application, className, projectId }: { application: WorkflowApplication; className?: string; projectId: number | null }) {
+export default function WorkflowApplicationBadge({ application, className, linkToProject, projectId }: { application: WorkflowApplication; className?: string; linkToProject: boolean; projectId: number | null }) {
   const path = applicationPaths[application];
-  const badgeClassName = cn("font-mono uppercase", applicationClasses[application], path && projectId !== null && "cursor-pointer hover:brightness-95 dark:hover:brightness-110", className);
-  if (!path || projectId === null) return <Badge className={badgeClassName} variant="outline">{workflowApplicationNames[application]}</Badge>;
-  return <Badge asChild className={badgeClassName} variant="outline"><Link title={`打开 ${workflowApplicationNames[application]} 项目 #${projectId}`} to={`${path}/projects/${projectId}`}>{workflowApplicationNames[application]}</Link></Badge>;
+  const label = `${workflowApplicationNames[application]}${projectId === null ? "" : ` #${projectId}`}`;
+  const linked = Boolean(path && projectId !== null && linkToProject);
+  const badgeClassName = cn("font-mono uppercase", applicationClasses[application], linked && "cursor-pointer hover:brightness-95 dark:hover:brightness-110", className);
+  if (!linked) return <Badge className={badgeClassName} variant="outline">{label}</Badge>;
+  return <Badge asChild className={badgeClassName} variant="outline"><Link title={`打开 ${workflowApplicationNames[application]} 项目 #${projectId}`} to={`${path}/projects/${projectId}`}>{label}</Link></Badge>;
 }

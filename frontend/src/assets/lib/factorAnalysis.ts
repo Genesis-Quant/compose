@@ -7,27 +7,19 @@ export type GroupPoint = { time: string; values: Record<string, number | null> }
 export type GroupStatistic = { group: string; mean: number | null; pValue: number | null };
 export type DecayPoint = { returnColumn: string; label: string; position: number; icMean: number | null; rankIcMean: number | null };
 export type FactorDateRange = { start: string; end: string };
-export type DistributionBin = { label: string; start: number; end: number; count: number };
-export type ProcessedSummary = { observations: number; valid: number; mean: number | null; std: number | null; minimum: number | null; q25: number | null; median: number | null; q75: number | null; maximum: number | null };
 
 export class FactorAnalytics {
   private constructor(
     private readonly database: BrowserDuckDb,
     private readonly informationFile: string,
-    private readonly groupsFile: string,
-    private readonly processedFile: string
+    private readonly groupsFile: string
   ) {}
 
-  static async create(workflowInstanceId: number, files: { information: ArrayBuffer; groups: ArrayBuffer; processed?: ArrayBuffer }) {
+  static async create(workflowInstanceId: number, files: { information: ArrayBuffer; groups: ArrayBuffer }) {
     const informationFile = `factor-${workflowInstanceId}-information.parquet`;
     const groupsFile = `factor-${workflowInstanceId}-groups.parquet`;
-    const processedFile = `factor-${workflowInstanceId}-processed.parquet`;
-    const database = await BrowserDuckDb.create({ [informationFile]: files.information, [groupsFile]: files.groups, ...files.processed ? { [processedFile]: files.processed } : {} });
-    return new FactorAnalytics(database, informationFile, groupsFile, processedFile);
-  }
-
-  async registerProcessed(buffer: ArrayBuffer) {
-    await this.database.register(this.processedFile, buffer);
+    const database = await BrowserDuckDb.create({ [informationFile]: files.information, [groupsFile]: files.groups });
+    return new FactorAnalytics(database, informationFile, groupsFile);
   }
 
   async metrics(parameters: FactorAnalysisParameters): Promise<FactorMetrics> {
@@ -130,40 +122,6 @@ export class FactorAnalytics {
     }));
   }
 
-  async processedSummary(factor: string): Promise<ProcessedSummary> {
-    const column = identifier(factor);
-    const rows = await this.rows(`
-      SELECT count(*) AS observations, count(${column}) AS valid, avg(${column}) AS mean,
-        stddev_samp(${column}) AS std, min(${column}) AS minimum,
-        quantile_cont(${column}, 0.25) AS q25, median(${column}) AS median,
-        quantile_cont(${column}, 0.75) AS q75, max(${column}) AS maximum
-      FROM read_parquet(${literal(this.processedFile)})
-    `);
-    const row = rows[0] ?? {};
-    return {
-      observations: integerValue(row.observations), valid: integerValue(row.valid), mean: numberValue(row.mean), std: numberValue(row.std),
-      minimum: numberValue(row.minimum), q25: numberValue(row.q25), median: numberValue(row.median), q75: numberValue(row.q75), maximum: numberValue(row.maximum)
-    };
-  }
-
-  async distribution(factor: string): Promise<DistributionBin[]> {
-    const column = identifier(factor);
-    const rows = await this.rows(`
-      WITH ranked AS (
-        SELECT ${column} AS value, ntile(30) OVER (ORDER BY ${column}) AS bucket
-        FROM read_parquet(${literal(this.processedFile)})
-        WHERE ${column} IS NOT NULL
-      )
-      SELECT bucket, min(value) AS start_value, max(value) AS end_value, count(*) AS count_value
-      FROM ranked GROUP BY bucket ORDER BY bucket
-    `);
-    return rows.map((row) => {
-      const start = numberValue(row.start_value) ?? 0;
-      const end = numberValue(row.end_value) ?? start;
-      return { start, end, count: integerValue(row.count_value), label: `${formatShort(start)}–${formatShort(end)}` };
-    });
-  }
-
   async close() {
     await this.database.close();
   }
@@ -254,10 +212,6 @@ function dateValue(value: unknown) {
 function dateFilter(range?: FactorDateRange) {
   if (!range || !/^\d{4}-\d{2}-\d{2}$/.test(range.start) || !/^\d{4}-\d{2}-\d{2}$/.test(range.end)) return "";
   return `WHERE time BETWEEN DATE ${literal(range.start)} AND DATE ${literal(range.end)}`;
-}
-
-function formatShort(value: number) {
-  return Math.abs(value) >= 1000 ? value.toExponential(1) : value.toFixed(3);
 }
 
 function normalCdf(value: number) {

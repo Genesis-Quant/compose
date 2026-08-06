@@ -1,5 +1,5 @@
 import { CandlestickChart, DatabaseZap, FlaskConical, Home, Menu, Moon, ShieldCheck, Sun, Workflow } from "lucide-react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { Avatar, AvatarFallback } from "@/ui/avatar";
 import { Button } from "@/ui/button";
@@ -20,6 +20,7 @@ const adminNavigation = { id: "admin", label: "管理面板", path: "/admin", ic
 
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const active = activePage(location.pathname);
   const analysisWorkspace = isAnalysisWorkspace(location.pathname);
   const theme = useAppStore((state) => state.theme);
@@ -41,7 +42,10 @@ export default function AppLayout() {
           <Button className="h-9 gap-2 px-1.5 lg:h-10 lg:gap-3 lg:px-2" variant="ghost" asChild><Link to="/"><FlaskConical className="size-[18px] lg:size-5" /><span className="text-base font-semibold lg:text-lg">Arena</span></Link></Button>
         </div>
 
-        <Tabs value={active} className="hidden lg:block"><TabsList>{visibleNavigation.map(({ id, icon: Icon, label, path }) => <TabsTrigger asChild key={id} value={id}><NavLink aria-label={label} title={label} to={path}><Icon />{label}</NavLink></TabsTrigger>)}</TabsList></Tabs>
+        <Tabs value={active} className="hidden lg:block" onValueChange={(value) => {
+          const destination = visibleNavigation.find(({ id }) => id === value);
+          if (destination) navigate(destination.path);
+        }}><TabsList>{visibleNavigation.map(({ id, icon: Icon, label }) => <TabsTrigger aria-label={label} key={id} title={label} value={id}><Icon />{label}</TabsTrigger>)}</TabsList></Tabs>
 
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-2"><Sun className="size-4 text-muted-foreground" /><Switch checked={theme === "dark"} onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} /><Moon className="size-4 text-muted-foreground" /></div>

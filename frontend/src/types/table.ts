@@ -1,7 +1,7 @@
 export type TableStatusTone = "blue" | "green" | "amber" | "red" | "neutral";
 
 export type ParquetColumnType = "auto" | "boolean" | "date" | "datetime" | "enum" | "integer" | "number" | "string";
-export type ParquetColumnFilter = "enum" | "text" | false;
+export type ParquetColumnFilter = "date" | "enum" | "text" | false;
 export type ParquetFilterValue = boolean | number | string;
 
 export type ParquetEnumOption = {
@@ -13,6 +13,9 @@ export type ParquetColumnConfig = {
   defaultVisible?: boolean;
   enum?: Record<string, ParquetEnumOption>;
   filter?: ParquetColumnFilter;
+  filterLabel?: string;
+  filterOrder?: number;
+  format?: "percent";
   group?: string;
   label?: string;
   pin?: "end" | "start";
@@ -23,6 +26,8 @@ export type ParquetColumnConfig = {
 };
 
 export type ParquetColumnConfigs = Record<string, ParquetColumnConfig>;
+export type ParquetNumericColumnStats = { max: number; mean: number; min: number };
+export type ParquetNumericColumnStatsMap = Record<string, ParquetNumericColumnStats>;
 
 export type ParquetColumnFilterState = {
   id: string;

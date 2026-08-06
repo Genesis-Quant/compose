@@ -12,7 +12,7 @@ const heroStyle: Record<PageHeroVariant, { accent: string; eyebrow: string; glow
 
 export function PageHero({ actions, chips = [], description, eyebrow, icon: Icon, stat, title, variant }: PageHeroProps) {
   const style = heroStyle[variant];
-  return <section className={`relative overflow-hidden rounded-md border px-5 py-4 shadow-sm ${style.surface}`}>
+  return <section className={`component-fade-in relative overflow-hidden rounded-md border px-5 py-4 shadow-sm ${style.surface}`}>
     <div className={`pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r ${style.glow}`} />
     <div className={`pointer-events-none absolute bottom-0 left-0 h-px w-2/5 ${style.line}`} />
     <div className="pointer-events-none absolute -right-16 top-1/2 hidden h-44 w-44 -translate-y-1/2 rounded-full border border-foreground/5 lg:block" />

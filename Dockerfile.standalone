@@ -97,6 +97,14 @@ RUN uv pip install \
     && "${VIRTUAL_ENV}/bin/core-manage" apps factor --help \
     && "${VIRTUAL_ENV}/bin/core-manage" messages send --help
 
+# Python Task builds `${PYTHON_LAUNCHER} generated_script.py` and executes it
+# through a tenant login shell, so the launcher must live in the task env file.
+RUN printf '\nexport PYTHON_LAUNCHER="%s"\n' "${VIRTUAL_ENV}/bin/python" \
+        >> /opt/dolphinscheduler/conf/dolphinscheduler_env.sh \
+    && sed -i \
+        's|^shell.env_source_list=.*$|shell.env_source_list=/opt/dolphinscheduler/conf/dolphinscheduler_env.sh|' \
+        /opt/dolphinscheduler/conf/common.properties
+
 RUN printf '%s\n' \
         'Defaults env_keep += "PROD ARENA_SHARED_CLOUD DATA_START_DATE INDEX_CODES TUSHARE_TOKEN"' \
         'Defaults env_keep += "DOLPHIN_HOST DOLPHIN_PORT DOLPHIN_USERNAME DOLPHIN_PASSWORD"' \

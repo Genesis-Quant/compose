@@ -13,5 +13,5 @@ type ProjectListActionsProps = {
 };
 
 export default function ProjectListActions({ children, createDisabled = false, createLabel, loading, onCreate, onRefresh }: ProjectListActionsProps) {
-  return <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end"><Button variant="outline" onClick={onRefresh} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button>{children}<Button disabled={createDisabled} onClick={onCreate}><Plus />{createLabel}</Button></div>;
+  return <div className="component-fade-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end"><Button variant="outline" onClick={onRefresh} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新</Button>{children}<Button disabled={createDisabled} onClick={onCreate}><Plus />{createLabel}</Button></div>;
 }

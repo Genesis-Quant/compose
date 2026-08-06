@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { backtestApi, validBacktestParameters } from "@/assets/lib/backtest";
+import { backtestApi, isBacktestParameters, validBacktestParameters } from "@/assets/lib/backtest";
 import { errorMessage } from "@/assets/lib/utils";
 import { workflowsApi } from "@/assets/lib/workflows";
 import AnalysisWorkspace from "@/components/layout/AnalysisWorkspace";
@@ -199,7 +199,7 @@ export default function BacktestDetailPage() {
     </AnalysisWorkspace>
     <SaveVersionDialog latestVersion={project.latest_version} open={saveOpen} remark={remark} submitting={saving} onClose={() => setSaveOpen(false)} onRemark={setRemark} onSave={saveVersion} />
     <VersionCompareDialog currentVersion={selectedVersion} kind="backtest" open={compareOpen} projectTitle={project.title} versions={versions} onOpenChange={setCompareOpen} />
-    <RequestBodyDialog endpoint={`/api/v1/backtest/projects/${projectId}/runs`} open={parametersOpen} value={displayedParameters} onClose={() => setParametersOpen(false)} />
+    <RequestBodyDialog editable={!readOnly} endpoint={`/api/v1/backtest/projects/${projectId}/runs`} open={parametersOpen} value={displayedParameters} validate={(value) => isBacktestParameters(value) ? null : "回测参数结构不完整。"} onApply={setParameters} onClose={() => setParametersOpen(false)} />
     <TaskLogModal open={logsOpen} workflowInstanceId={displayedWorkflowInstanceId} taskInstanceId={logTaskInstanceId} onOpenChange={setLogsOpen} />
   </>;
 }

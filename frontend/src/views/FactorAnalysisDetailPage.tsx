@@ -13,7 +13,7 @@ import TaskLogModal from "@/components/modal/TaskLogModal";
 import FactorAnalysisControlsPanel from "@/components/panel/FactorAnalysisControlsPanel";
 import FactorAnalysisResultsPanel from "@/components/panel/FactorAnalysisResultsPanel";
 import ErrorPanel from "@/components/panel/ErrorPanel";
-import { analysisDsl, analysisSettings, applyAnalysisSettings, defaultAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion } from "@/types/factor";
+import { canNormalizeFactorAnalysisParameters, defaultAnalysisParameters, normalizeAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion } from "@/types/factor";
 import { terminalStates } from "@/types/workflow";
 
 export default function FactorAnalysisDetailPage() {
@@ -108,7 +108,7 @@ export default function FactorAnalysisDetailPage() {
         setWorkflowError(nextProject.draft.error);
       } else if (nextVersions[0]) {
         setSelectedVersion(nextVersions[0].version);
-        setParameters(nextVersions[0].parameters);
+        setParameters(normalizeAnalysisParameters(nextVersions[0].parameters));
       }
     } catch (reason) { if (requestId === loadRequest.current) setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { if (requestId === loadRequest.current) setLoading(false); }
@@ -185,7 +185,7 @@ export default function FactorAnalysisDetailPage() {
 
   function continueFromVersion() {
     if (!currentVersion) return;
-    setParameters(structuredClone(currentVersion.parameters));
+    setParameters(normalizeAnalysisParameters(structuredClone(currentVersion.parameters)));
     setSelectedVersion(null);
     setWorkflowInstanceId(project?.draft?.workflow_instance_id ?? null);
     setWorkflowState(project?.draft?.state ?? "IDLE");
@@ -246,16 +246,10 @@ export default function FactorAnalysisDetailPage() {
       onSave={saveVersion}
     />
     <VersionCompareDialog currentVersion={selectedVersion} kind="factor" open={compareOpen} projectTitle={project.title} versions={versions} onOpenChange={setCompareOpen} />
-    <RequestBodyDialog endpoint={`/api/v1/factor/projects/${projectId}/analyses`} open={parametersOpen} value={displayedParameters} onClose={() => setParametersOpen(false)} />
+    <RequestBodyDialog editable={!readOnly} endpoint={`/api/v1/factor/projects/${projectId}/analyses`} open={parametersOpen} value={displayedParameters} validate={(value) => canNormalizeFactorAnalysisParameters(value) ? null : "因子分析参数结构不完整。"} onApply={(value) => setParameters(normalizeAnalysisParameters(value))} onClose={() => setParametersOpen(false)} />
     <TaskLogModal open={logsOpen} workflowInstanceId={displayedWorkflowInstanceId} taskInstanceId={logTaskInstanceId} onOpenChange={setLogsOpen} />
   </>;
 }
-
-
-function normalizeAnalysisParameters(parameters: FactorAnalysisParameters): FactorAnalysisParameters {
-  return applyAnalysisSettings(parameters, analysisDsl(parameters), analysisSettings(parameters));
-}
-
 function validAnalysisContract(parameters: FactorAnalysisParameters, catalog: DslCatalog | null) {
   if (!catalog) return false;
   const numericDerivatives = Object.entries(parameters.dataset_query.derivatives)

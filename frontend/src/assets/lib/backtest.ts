@@ -1,5 +1,5 @@
 import { client } from "@/assets/lib/request";
-import type { DslCatalog } from "@/types/factor";
+import { isFactorQuery, type DslCatalog } from "@/types/factor";
 import { callbackNames, callbackParameters, type BacktestOutput, type BacktestOutputName, type BacktestParameters, type BacktestProject, type BacktestProjectPage, type BacktestSummary, type BacktestVersion, type BacktestWorkflowSubmitted, type CallbackName } from "@/types/backtest";
 
 export function validCallback(callback: CallbackName, source: string) {
@@ -124,6 +124,34 @@ export function validBacktestParameters(parameters: BacktestParameters) {
     && validCallbacks(parameters.callbacks);
 }
 
+const BACKTEST_PARAMETER_NAMES = new Set([
+  "config",
+  "codes_query",
+  "dataset_query",
+  "adj",
+  "annual_trading_days",
+  "risk_free_rate",
+  "utils",
+  "callbacks"
+]);
+
+export function isBacktestParameters(value: unknown): value is BacktestParameters {
+  if (!isRecord(value)) return false;
+  if (!Object.keys(value).every((name) => BACKTEST_PARAMETER_NAMES.has(name))) return false;
+  const callbacks = value.callbacks;
+  if (!isRecord(callbacks)) return false;
+  return [
+    isRecord(value.config),
+    value.codes_query === null || isFactorQuery(value.codes_query),
+    isFactorQuery(value.dataset_query),
+    value.adj === null || value.adj === "hfq" || value.adj === "qfq",
+    typeof value.annual_trading_days === "number" && Number.isFinite(value.annual_trading_days),
+    typeof value.risk_free_rate === "number" && Number.isFinite(value.risk_free_rate),
+    typeof value.utils === "string",
+    callbackNames.every((name) => typeof callbacks[name] === "string")
+  ].every(Boolean);
+}
+
 export const backtestApi = {
   listProjects: (page = 1, pageSize = 20) => client.get<BacktestProjectPage>("/backtest/projects", { params: { page, page_size: pageSize } }),
   createProject: (title: string) => client.post<BacktestProject>("/backtest/projects", { title }),
@@ -138,3 +166,5 @@ export const backtestApi = {
   outputs: (workflowInstanceId: number) => client.get<BacktestOutput[]>(`/backtest/workflows/${workflowInstanceId}/outputs`),
   output: (workflowInstanceId: number, name: BacktestOutputName) => client.getBinary(`/backtest/workflows/${workflowInstanceId}/outputs/${name}`)
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }

@@ -96,12 +96,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
 
       <form className="mt-7 space-y-5" onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { window.setTimeout(() => { composing.current = false; }, 0); }} onSubmit={submit} noValidate>
         <Field id="username" label="用户名" error={errors.username} hint="3–64 位，仅字母、数字与下划线">
-          <div className="auth-input-wrap flex items-center rounded-md border border-input bg-[color:var(--field-bg)] transition-all">
-            <IconUserRound className="ml-3 shrink-0 text-muted-foreground" width={16} height={16} />
+          <div className="relative">
+            <IconUserRound className="pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2 text-muted-foreground" width={16} height={16} />
             <Input
               autoComplete="username"
               autoFocus
               aria-invalid={Boolean(errors.username)}
+              className="h-10 bg-[color:var(--field-bg)] pl-10 dark:bg-[color:var(--field-bg)]"
               id="username"
               maxLength={64}
               placeholder="quant_researcher"
@@ -112,11 +113,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         </Field>
 
         <Field id="password" label="密码" error={errors.password} hint={current.passwordHint}>
-          <div className="auth-input-wrap flex items-center rounded-md border border-input bg-[color:var(--field-bg)] transition-all">
-            <IconLockKeyhole className="ml-3 shrink-0 text-muted-foreground" width={16} height={16} />
+          <div className="relative">
+            <IconLockKeyhole className="pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2 text-muted-foreground" width={16} height={16} />
             <Input
               autoComplete={current.passwordAutocomplete}
               aria-invalid={Boolean(errors.password)}
+              className="h-10 bg-[color:var(--field-bg)] pr-11 pl-10 dark:bg-[color:var(--field-bg)]"
               id="password"
               maxLength={72}
               placeholder="输入密码"
@@ -124,7 +126,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <Button className="mr-2 shrink-0" size="icon" variant="ghost" type="button" onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? "隐藏密码" : "显示密码"}>
+            <Button className="absolute top-1/2 right-1 size-8 -translate-y-1/2" size="icon" variant="ghost" type="button" onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? "隐藏密码" : "显示密码"}>
               {passwordVisible ? <IconEyeOff width={16} height={16} /> : <IconEye width={16} height={16} />}
             </Button>
           </div>
@@ -133,11 +135,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         {isRegister
 ? 
           <Field id="confirm-password" label="确认密码" error={errors.confirmPassword}>
-            <div className="auth-input-wrap flex items-center rounded-md border border-input bg-[color:var(--field-bg)] transition-all">
-              <IconLockKeyhole className="ml-3 shrink-0 text-muted-foreground" width={16} height={16} />
+            <div className="relative">
+              <IconLockKeyhole className="pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2 text-muted-foreground" width={16} height={16} />
               <Input
                 autoComplete="new-password"
                 aria-invalid={Boolean(errors.confirmPassword)}
+                className="h-10 bg-[color:var(--field-bg)] pl-10 dark:bg-[color:var(--field-bg)]"
                 id="confirm-password"
                 maxLength={72}
                 placeholder="再次输入密码"

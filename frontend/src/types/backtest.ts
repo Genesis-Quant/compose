@@ -15,15 +15,12 @@ export const callbackParameters: Record<CallbackName, string> = {
 export type BacktestSummary = Record<string, number | null>;
 
 export type BacktestParameters = {
-  name: string | null;
   config: Record<string, unknown>;
   codes_query: FactorQuery | null;
   dataset_query: FactorQuery;
   adj: "hfq" | "qfq" | null;
   annual_trading_days: number;
   risk_free_rate: number;
-  source_ref: string;
-  message_ref: string;
   utils: string;
   callbacks: Record<CallbackName, string>;
 };
@@ -90,9 +87,8 @@ export function defaultBacktestCodesQuery(datasetQuery?: Pick<FactorQuery, "star
 }
 
 export const defaultBacktestParameters = (): BacktestParameters => ({
-  name: null,
   config: { cash: 1_000_000, commission: 0.0003, tax: 0.001, matchingMode: 2, enableMinimumPerTransactionFee: true },
-  codes_query: defaultBacktestCodesQuery(),
+  codes_query: null,
   dataset_query: {
     start_date: "2020-01-01",
     end_date: "2026-01-01",
@@ -124,8 +120,6 @@ export const defaultBacktestParameters = (): BacktestParameters => ({
   adj: "hfq",
   annual_trading_days: 250,
   risk_free_rate: 0.04,
-  source_ref: "coreBacktestSourceData",
-  message_ref: "coreBacktestMessage",
   utils: `def riskParityObjective(weights, covariance) {
     count = size(weights)
     covarianceTimesWeights = take(0.0, count)

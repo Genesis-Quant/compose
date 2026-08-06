@@ -13,6 +13,22 @@ export function chartRange(values: Array<number | null | undefined>, includeZero
   return count ? { min, max } : undefined;
 }
 
+export function chartRangeIncluding(range: ChartRange | undefined, value: number): ChartRange | undefined {
+  return range ? { min: Math.min(range.min, value), max: Math.max(range.max, value) } : undefined;
+}
+
+export function thresholdMarkLine(theme: string, label: string, value: number) {
+  const color = theme === "dark" ? "#94a3b8" : "#64748b";
+  const backgroundColor = theme === "dark" ? "rgba(21, 27, 36, 0.92)" : "rgba(255, 255, 255, 0.92)";
+  return {
+    silent: true,
+    symbol: "none",
+    data: [{ yAxis: value }],
+    label: { show: true, formatter: label, position: "insideEndTop", color, backgroundColor, borderRadius: 3, padding: [2, 4], fontSize: 10 },
+    lineStyle: { color, type: "dashed", width: 1 }
+  };
+}
+
 export function mergeChartRanges(...ranges: Array<ChartRange | undefined>): ChartRange | undefined {
   const present = ranges.filter((range): range is ChartRange => range !== undefined);
   if (!present.length) return undefined;
