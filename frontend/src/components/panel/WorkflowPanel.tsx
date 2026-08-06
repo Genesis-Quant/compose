@@ -1,6 +1,7 @@
 import { Activity, ChevronDown, ChevronUp, Clock3, Eye, Loader2, RefreshCw, Square, Terminal } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { formatDateTime } from "@/assets/lib/dateTime";
 import { formatDuration, resolveDurationSeconds, workflowsApi } from "@/assets/lib/workflows";
 import WorkflowApplicationBadge from "@/components/badge/WorkflowApplicationBadge";
 import { AppPagination } from "@/components/pagination/AppPagination";
@@ -140,5 +141,4 @@ function WorkflowTaskCapsules({ error, onLogs, tasks }: { error?: string | null;
 }
 
 function WorkflowTableState({ children, columns }: { children: React.ReactNode; columns: number }) { return <TableRow><TableCell colSpan={columns}><div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">{children}</div></TableCell></TableRow>; }
-function WorkflowStartTime({ value }: { value: string }) { const date = new Date(value); const sameYear = date.getFullYear() === new Date().getFullYear(); const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`; const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`; return <div className="font-mono text-xs">{sameYear ? null : <div>{day}</div>}<div className={sameYear ? "" : "mt-1"}>{time}</div></div>; }
-function pad(value: number) { return String(value).padStart(2, "0"); }
+function WorkflowStartTime({ value }: { value: string }) { return <div className="whitespace-nowrap font-mono text-xs">{formatDateTime(value)}</div>; }

@@ -4,6 +4,7 @@ import IconCheck from "~icons/lucide/check";
 import IconLogOut from "~icons/lucide/log-out";
 import IconShieldCheck from "~icons/lucide/shield-check";
 
+import { formatDateTime } from "@/assets/lib/dateTime";
 import { MotionPage } from "@/layout/MotionPage";
 import { useAppStore } from "@/store";
 import { Button } from "@/ui/button";
@@ -21,15 +22,11 @@ export default function ProfilePage() {
           <div className="auth-card rounded-xl p-6 sm:p-8">
             <div className="flex items-center justify-between"><span className="grid size-11 place-items-center rounded-full border border-primary/25 bg-primary/10 text-primary"><IconShieldCheck width={20} height={20} /></span><span className="numeric flex items-center gap-1.5 text-[10px] font-bold tracking-[0.16em] text-primary"><IconCheck width={13} height={13} />VERIFIED</span></div>
             <p className="mt-8 text-[10px] tracking-[0.18em] text-muted-foreground">RESEARCHER</p><h2 className="display-type mt-2 text-3xl tracking-[-0.035em]">{user.username}</h2>
-            <dl className="mt-7 grid gap-4 border-y border-border py-5 text-xs"><div className="flex justify-between gap-5"><dt className="text-muted-foreground">账户编号</dt><dd className="numeric">#{String(user.id).padStart(4, "0")}</dd></div><div className="flex justify-between gap-5"><dt className="text-muted-foreground">建立时间</dt><dd className="numeric">{formatDate(user.created_at)}</dd></div><div className="flex justify-between gap-5"><dt className="text-muted-foreground">会话状态</dt><dd className="text-primary">安全连接</dd></div></dl>
+            <dl className="mt-7 grid gap-4 border-y border-border py-5 text-xs"><div className="flex justify-between gap-5"><dt className="text-muted-foreground">账户编号</dt><dd className="numeric">#{String(user.id).padStart(4, "0")}</dd></div><div className="flex justify-between gap-5"><dt className="text-muted-foreground">建立时间</dt><dd className="numeric">{formatDateTime(user.created_at)}</dd></div><div className="flex justify-between gap-5"><dt className="text-muted-foreground">会话状态</dt><dd className="text-primary">安全连接</dd></div></dl>
             <Button className="mt-6 w-full" type="button" variant="outline" onClick={logout}><IconLogOut width={15} height={15} />退出登录</Button>
           </div>
         </div>
       </section>
     </MotionPage>
   );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
 }

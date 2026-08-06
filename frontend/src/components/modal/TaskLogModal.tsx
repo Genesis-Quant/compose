@@ -7,8 +7,10 @@ import IconServer from "~icons/lucide/server";
 import IconTerminal from "~icons/lucide/terminal";
 
 import { tasksApi } from "@/assets/lib/tasks";
+import { appendTaskLog } from "@/assets/lib/taskLogs";
 import { formatDuration, workflowsApi } from "@/assets/lib/workflows";
 import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
+import TaskLogViewer from "@/components/log/TaskLogViewer";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { terminalStates, type WorkflowInformation } from "@/types/workflow";
@@ -68,7 +70,7 @@ export default function TaskLogModal({ onOpenChange, open, taskInstanceId, workf
     try {
       const result = await tasksApi.logs(workflowInstanceId, currentTaskInstanceId, reset ? 0 : nextLineRef.current, PAGE_SIZE);
       if (selectionRef.current !== selection) return false;
-      setMessage((current) => reset ? result.message : current + result.message);
+      setMessage((current) => reset ? result.message : appendTaskLog(current, result.message));
       nextLineRef.current = result.next_line_num;
       hasMoreRef.current = result.has_more;
       setNextLine(result.next_line_num);
@@ -163,7 +165,7 @@ function taskLogUnavailable(workflow: WorkflowInformation | null, host: string |
 function taskLogContent(loading: boolean, workflow: WorkflowInformation | null, message: string, error: string, creating: boolean, unavailable: boolean) {
   if (loading && !workflow) return <div className="grid min-h-72 place-items-center"><IconLoaderCircle className="animate-spin text-muted-foreground" width={20} height={20} /></div>;
   const unavailableMessage = unavailable ? workflow?.error || "工作流已结束，未创建可读取日志的 Task" : "";
-  return <pre className="m-0 min-h-72 whitespace-pre-wrap break-words p-5 font-mono text-[11px] leading-5">{message || unavailableMessage || emptyLogMessage(error, creating)}</pre>;
+  return <TaskLogViewer message={message} emptyMessage={unavailableMessage || emptyLogMessage(error, creating)} />;
 }
 
 function taskLogFooter(creating: boolean, unavailable: boolean) {

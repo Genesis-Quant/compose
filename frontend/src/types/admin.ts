@@ -43,6 +43,40 @@ export type AdminIncrementalWorker = {
   description: string;
 };
 
+export type AdminOutputWorkspace = {
+  application: string;
+  workspace_key: string;
+  path: string;
+  storage: "local" | "cloud" | "mixed";
+  file_count: number;
+  size_bytes: number;
+  modified_at: string | null;
+  orphaned: boolean;
+  workflow_run_id: number | null;
+  project_id: number | null;
+  project_title: string | null;
+};
+
+export type AdminOutputApplicationSummary = {
+  application: string;
+  workspace_count: number;
+  file_count: number;
+  total_bytes: number;
+};
+
+export type AdminOutputStorage = {
+  available: boolean;
+  error: string | null;
+  mode: "local" | "cloud";
+  root: string;
+  workspace_count: number;
+  orphan_workspace_count: number;
+  file_count: number;
+  total_bytes: number;
+  applications: AdminOutputApplicationSummary[];
+  workspaces: AdminOutputWorkspace[];
+};
+
 export type AdminOverview = {
   users: { total: number; administrators: number };
   workflow_instances: { total: number; active: number; success: number; failure: number };

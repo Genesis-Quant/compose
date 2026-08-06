@@ -31,10 +31,6 @@ export function resolveDurationSeconds(
   return Math.max(0, (endedTime - startedTime) / 1000);
 }
 
-export function formatDateTime(value: string | null | undefined) {
-  return value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—";
-}
-
 export const workflowsApi = {
   list: (filters: WorkflowListFilters) => client.get<WorkflowListPage>("/workflows", { params: filters }),
   status: (workflowInstanceId: number) => client.get<WorkflowInformation>(`/workflows/${workflowInstanceId}`),

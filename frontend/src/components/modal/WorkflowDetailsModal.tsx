@@ -4,7 +4,8 @@ import IconBraces from "~icons/lucide/braces";
 import IconCalendarClock from "~icons/lucide/calendar-clock";
 import IconGitBranch from "~icons/lucide/git-branch";
 
-import { formatDateTime, formatDuration, resolveDurationSeconds, workflowApplicationNames } from "@/assets/lib/workflows";
+import { formatDateTime } from "@/assets/lib/dateTime";
+import { formatDuration, resolveDurationSeconds, workflowApplicationNames } from "@/assets/lib/workflows";
 import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
 import { Badge } from "@/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
