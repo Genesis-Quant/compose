@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { mergeChartRanges } from "@/assets/lib/chart";
-import { stockPoolCode, stockPools, type FactorAnalysisParameters, type FactorVersion } from "@/types/factor";
-import type { BacktestParameters, BacktestVersion } from "@/types/backtest";
+import { stockPoolCode, stockPools, type FactorAnalysisParameters, type FactorVersion, type FactorVersionListItem } from "@/types/factor";
+import type { BacktestParameters, BacktestVersion, BacktestVersionListItem } from "@/types/backtest";
 import type { BacktestChartRanges, FactorChartRanges } from "@/types/chart";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, LargeDialogContent } from "@/ui/dialog";
@@ -15,14 +15,16 @@ const BacktestReport = lazy(() => import("@/components/panel/BacktestReport"));
 const ignoreMetrics = () => undefined;
 
 type Version = FactorVersion | BacktestVersion;
+type VersionListItem = FactorVersionListItem | BacktestVersionListItem;
 
 type VersionCompareDialogProps = {
-  currentVersion: number | null;
+  currentVersion: Version | null;
   kind: "factor" | "backtest";
+  loadVersion: (version: number) => Promise<Version>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   projectTitle: string;
-  versions: Version[];
+  versions: VersionListItem[];
 };
 
 const backtestTabs = [
@@ -33,24 +35,35 @@ const backtestTabs = [
   { value: "daily_trading_statistics", label: "交易统计" }
 ];
 
-export default function VersionCompareDialog({ currentVersion, kind, onOpenChange, open, projectTitle, versions }: VersionCompareDialogProps) {
+export default function VersionCompareDialog({ currentVersion, kind, loadVersion, onOpenChange, open, projectTitle, versions }: VersionCompareDialogProps) {
   const ordered = useMemo(() => [...versions].sort((left, right) => left.version - right.version), [versions]);
-  const selectable = ordered.filter((version) => version.version !== currentVersion);
+  const selectable = ordered.filter((version) => version.version !== currentVersion?.version);
   const [compareVersion, setCompareVersion] = useState<number | null>(null);
   const [result, setResult] = useState<{ left: Version; right: Version } | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setCompareVersion(selectable.at(-1)?.version ?? null);
-  }, [currentVersion, open, versions]);
+    setError("");
+  }, [currentVersion?.version, open, versions]);
 
   const selected = selectable.find((version) => version.version === compareVersion);
 
-  function compare() {
-    const left = ordered.find((version) => version.version === currentVersion);
-    if (!left || !selected) return;
-    setResult({ left, right: selected });
-    onOpenChange(false);
+  async function compare() {
+    if (!currentVersion || !selected || comparing) return;
+    setComparing(true);
+    setError("");
+    try {
+      const right = await loadVersion(selected.version);
+      setResult({ left: currentVersion, right });
+      onOpenChange(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setComparing(false);
+    }
   }
 
   return <>
@@ -65,8 +78,9 @@ export default function VersionCompareDialog({ currentVersion, kind, onOpenChang
           </Select>
           {selected?.remark ? <div className="max-h-32 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 px-3 py-2 text-sm leading-5 text-muted-foreground">{selected.remark}</div> : null}
           {ordered.length < 2 ? <p className="text-sm text-muted-foreground">至少保存两个版本后才能对比。</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
-        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button><Button disabled={!selected || currentVersion === null} onClick={compare}>开始对比</Button></DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button><Button disabled={!selected || !currentVersion || comparing} onClick={compare}>{comparing ? "正在读取" : "开始对比"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
 

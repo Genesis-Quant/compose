@@ -13,14 +13,15 @@ import TaskLogModal from "@/components/modal/TaskLogModal";
 import FactorAnalysisControlsPanel from "@/components/panel/FactorAnalysisControlsPanel";
 import FactorAnalysisResultsPanel from "@/components/panel/FactorAnalysisResultsPanel";
 import ErrorPanel from "@/components/panel/ErrorPanel";
-import { canNormalizeFactorAnalysisParameters, defaultAnalysisParameters, normalizeAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion } from "@/types/factor";
+import { canNormalizeFactorAnalysisParameters, defaultAnalysisParameters, normalizeAnalysisParameters, type DslCatalog, type FactorAnalysisParameters, type FactorMetrics, type FactorProject, type FactorVersion, type FactorVersionListItem } from "@/types/factor";
 import { terminalStates } from "@/types/workflow";
 
 export default function FactorAnalysisDetailPage() {
   const projectId = Number(useParams().projectId);
   const navigate = useNavigate();
   const [project, setProject] = useState<FactorProject | null>(null);
-  const [versions, setVersions] = useState<FactorVersion[]>([]);
+  const [versions, setVersions] = useState<FactorVersionListItem[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<FactorVersion | null>(null);
   const [catalog, setCatalog] = useState<DslCatalog | null>(null);
   const [parameters, setParameters] = useState<FactorAnalysisParameters>(defaultAnalysisParameters());
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
@@ -41,13 +42,13 @@ export default function FactorAnalysisDetailPage() {
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState("");
   const loadRequest = useRef(0);
-  const currentVersion = useMemo(() => versions.find((version) => version.version === selectedVersion), [selectedVersion, versions]);
+  const versionRequest = useRef(0);
   const displayedWorkflowInstanceId = currentVersion?.workflow_instance_id ?? workflowInstanceId;
   const displayedParameters = useMemo(() => normalizeAnalysisParameters(currentVersion?.parameters ?? parameters), [currentVersion, parameters]);
   const resultParameters = useMemo(() => normalizeAnalysisParameters(currentVersion?.parameters ?? project?.draft?.parameters ?? parameters), [currentVersion, parameters, project?.draft?.parameters]);
   const displayedState = currentVersion ? "SUCCESS" : workflowState;
   const displayedWorkflowError = currentVersion ? null : workflowError;
-  const readOnly = currentVersion !== undefined;
+  const readOnly = currentVersion !== null;
   const activeWorkflow = !currentVersion && workflowInstanceId !== null && !terminalStates.has(workflowState);
   const running = submitting || activeWorkflow;
   const analysisReady = dslValid && validAnalysisContract(parameters, catalog);
@@ -92,9 +93,11 @@ export default function FactorAnalysisDetailPage() {
     setError("");
     try {
       const [nextProject, nextVersions, nextCatalog] = await Promise.all([factorApi.getProject(projectId), factorApi.listVersions(projectId), factorApi.catalog()]);
+      const nextCurrentVersion = !nextProject.draft && nextVersions[0] ? await factorApi.getVersion(projectId, nextVersions[0].version) : null;
       if (requestId !== loadRequest.current) return;
       setProject(nextProject);
       setVersions(nextVersions);
+      setCurrentVersion(nextCurrentVersion);
       setCatalog(nextCatalog);
       setStopping(false);
       setSelectedVersion(null);
@@ -108,7 +111,7 @@ export default function FactorAnalysisDetailPage() {
         setWorkflowError(nextProject.draft.error);
       } else if (nextVersions[0]) {
         setSelectedVersion(nextVersions[0].version);
-        setParameters(normalizeAnalysisParameters(nextVersions[0].parameters));
+        if (nextCurrentVersion) setParameters(normalizeAnalysisParameters(nextCurrentVersion.parameters));
       }
     } catch (reason) { if (requestId === loadRequest.current) setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { if (requestId === loadRequest.current) setLoading(false); }
@@ -152,16 +155,10 @@ export default function FactorAnalysisDetailPage() {
     }
   }
 
-  async function openTaskLog() {
+  function openTaskLog() {
     if (!displayedWorkflowInstanceId) return;
-    try {
-      const workflow = await workflowsApi.status(displayedWorkflowInstanceId);
-      const task = workflow.tasks.find((item) => item.task_instance_id !== null) ?? workflow.tasks[0];
-      setLogTaskInstanceId(task?.task_instance_id ?? null);
-      setLogsOpen(true);
-    } catch (reason) {
-      setError(errorMessage(reason));
-    }
+    setLogTaskInstanceId(null);
+    setLogsOpen(true);
   }
 
   async function saveVersion() {
@@ -173,6 +170,7 @@ export default function FactorAnalysisDetailPage() {
       const [nextProject, nextVersions] = await Promise.all([factorApi.getProject(projectId), factorApi.listVersions(projectId)]);
       setProject(nextProject);
       setVersions(nextVersions);
+      setCurrentVersion(saved);
       setSelectedVersion(saved.version);
       setSaveOpen(false);
       setRemark("");
@@ -186,12 +184,32 @@ export default function FactorAnalysisDetailPage() {
   function continueFromVersion() {
     if (!currentVersion) return;
     setParameters(normalizeAnalysisParameters(structuredClone(currentVersion.parameters)));
+    setCurrentVersion(null);
     setSelectedVersion(null);
     setWorkflowInstanceId(project?.draft?.workflow_instance_id ?? null);
     setWorkflowState(project?.draft?.state ?? "IDLE");
     setWorkflowError(project?.draft?.error ?? null);
     setMetrics(null);
     setError("");
+  }
+
+  async function selectVersion(version: number | null) {
+    const requestId = ++versionRequest.current;
+    setMetrics(null);
+    setError("");
+    if (version === null) {
+      setCurrentVersion(null);
+      setSelectedVersion(null);
+      return;
+    }
+    try {
+      const nextVersion = await factorApi.getVersion(projectId, version);
+      if (requestId !== versionRequest.current) return;
+      setCurrentVersion(nextVersion);
+      setSelectedVersion(version);
+    } catch (reason) {
+      if (requestId === versionRequest.current) setError(errorMessage(reason));
+    }
   }
 
   if (loading) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><IconLoaderCircle className="animate-spin text-primary" width={26} height={26} /></div>;
@@ -223,7 +241,7 @@ export default function FactorAnalysisDetailPage() {
       onStop={stopAnalysis}
       onParameters={setParameters}
       onValidity={setDslValid}
-      onVersion={(version) => { setSelectedVersion(version); setMetrics(null); setError(""); }}
+      onVersion={selectVersion}
     />}>
       <FactorAnalysisResultsPanel
         displayedParameters={resultParameters}
@@ -245,7 +263,7 @@ export default function FactorAnalysisDetailPage() {
       onRemark={setRemark}
       onSave={saveVersion}
     />
-    <VersionCompareDialog currentVersion={selectedVersion} kind="factor" open={compareOpen} projectTitle={project.title} versions={versions} onOpenChange={setCompareOpen} />
+    <VersionCompareDialog currentVersion={currentVersion} kind="factor" loadVersion={(version) => factorApi.getVersion(projectId, version)} open={compareOpen} projectTitle={project.title} versions={versions} onOpenChange={setCompareOpen} />
     <RequestBodyDialog editable={!readOnly} endpoint={`/api/v1/factor/projects/${projectId}/analyses`} open={parametersOpen} value={displayedParameters} validate={(value) => canNormalizeFactorAnalysisParameters(value) ? null : "因子分析参数结构不完整。"} onApply={(value) => setParameters(normalizeAnalysisParameters(value))} onClose={() => setParametersOpen(false)} />
     <TaskLogModal open={logsOpen} workflowInstanceId={displayedWorkflowInstanceId} taskInstanceId={logTaskInstanceId} onOpenChange={setLogsOpen} />
   </>;

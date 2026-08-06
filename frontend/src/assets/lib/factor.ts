@@ -7,7 +7,8 @@ import type {
   FactorOutput,
   FactorProject,
   FactorProjectPage,
-  FactorVersion
+  FactorVersion,
+  FactorVersionListItem
 } from "@/types/factor";
 
 export const factorApi = {
@@ -17,7 +18,7 @@ export const factorApi = {
   updateProject: (projectId: number, title: string) => client.patch<FactorProject>(`/factor/projects/${projectId}`, { title }),
   deleteProject: (projectId: number) => client.delete<{ id: number }>(`/factor/projects/${projectId}`),
   analyze: (projectId: number, parameters: FactorAnalysisParameters) => client.post<FactorWorkflowSubmitted>(`/factor/projects/${projectId}/analyses`, parameters, { timeout: 30000 }),
-  listVersions: (projectId: number) => client.get<FactorVersion[]>(`/factor/projects/${projectId}/versions`),
+  listVersions: (projectId: number) => client.get<FactorVersionListItem[]>(`/factor/projects/${projectId}/versions`),
   getVersion: (projectId: number, version: number) => client.get<FactorVersion>(`/factor/projects/${projectId}/versions/${version}`),
   saveVersion: (projectId: number, workflowInstanceId: number, remark: string, metrics: FactorMetrics) => client.post<FactorVersion>(`/factor/projects/${projectId}/versions`, { workflow_instance_id: workflowInstanceId, remark, metrics }),
   catalog: () => client.get<DslCatalog>("/factor/dsl/catalog", { timeout: 30000 }),

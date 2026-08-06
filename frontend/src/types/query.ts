@@ -17,8 +17,15 @@ export type QueryProject = {
   updated_at: string;
 };
 
+export type QueryProjectListItem = {
+  id: number;
+  title: string;
+  current: Pick<QueryWorkflowSummary, "workflow_instance_id" | "state"> | null;
+  updated_at: string;
+};
+
 export type QueryProjectPage = {
-  items: QueryProject[];
+  items: QueryProjectListItem[];
   page: number;
   page_size: number;
   total: number;

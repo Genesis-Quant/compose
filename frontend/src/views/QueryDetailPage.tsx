@@ -124,14 +124,10 @@ export default function QueryDetailPage() {
     }
   }
 
-  async function openTaskLog() {
+  function openTaskLog() {
     if (!workflowInstanceId) return;
-    try {
-      const workflow = await workflowsApi.status(workflowInstanceId);
-      const task = workflow.tasks.find((item) => item.task_instance_id !== null) ?? workflow.tasks[0];
-      setLogTaskInstanceId(task?.task_instance_id ?? null);
-      setLogsOpen(true);
-    } catch (reason) { setError(errorMessage(reason)); }
+    setLogTaskInstanceId(null);
+    setLogsOpen(true);
   }
 
   if (loading) return <div className="grid min-h-[calc(100vh-4rem)] place-items-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;

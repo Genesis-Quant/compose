@@ -6,12 +6,12 @@ import { errorMessage } from "@/assets/lib/utils";
 import AnalysisWorkspace from "@/components/layout/AnalysisWorkspace";
 import SecondaryQueryControlsPanel from "@/components/panel/SecondaryQueryControlsPanel";
 import SecondaryQueryResultsPanel from "@/components/panel/SecondaryQueryResultsPanel";
-import type { QueryProject } from "@/types/query";
+import type { QueryProjectListItem } from "@/types/query";
 
 const PREVIEW_LIMIT = 200;
 
 export default function SecondaryQueryPage() {
-  const [sources, setSources] = useState<QueryProject[]>([]);
+  const [sources, setSources] = useState<QueryProjectListItem[]>([]);
   const [selectedSources, setSelectedSources] = useState<Set<number>>(new Set());
   const [sql, setSql] = useState("");
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);

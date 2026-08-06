@@ -7,7 +7,7 @@ import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Label } from "@/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ui/select";
-import type { QueryProject } from "@/types/query";
+import type { QueryProjectListItem } from "@/types/query";
 
 type StockCodesFieldProps = {
   className?: string;
@@ -20,7 +20,7 @@ type StockCodesFieldProps = {
 export default function StockCodesField({ className, codes, disabled = false, onChange, readOnly = false }: StockCodesFieldProps) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const [projects, setProjects] = useState<QueryProject[]>([]);
+  const [projects, setProjects] = useState<QueryProjectListItem[]>([]);
   const [sourceId, setSourceId] = useState<string>();
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [importing, setImporting] = useState(false);

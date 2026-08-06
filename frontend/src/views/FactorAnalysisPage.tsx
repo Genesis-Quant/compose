@@ -10,7 +10,7 @@ import { PageHero } from "@/components/bar/PageHero";
 import { CreateProjectDialog, DeleteProjectDialog } from "@/components/modal/ProjectDialogs";
 import ErrorPanel from "@/components/panel/ErrorPanel";
 import FactorProjectTable from "@/components/table/FactorProjectTable";
-import type { FactorProject, FactorProjectPage } from "@/types/factor";
+import type { FactorProjectListItem, FactorProjectPage } from "@/types/factor";
 
 export default function FactorAnalysisPage() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ export default function FactorAnalysisPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<FactorProject | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FactorProjectListItem | null>(null);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

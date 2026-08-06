@@ -11,7 +11,7 @@ import { CreateProjectDialog, DeleteProjectDialog } from "@/components/modal/Pro
 import ErrorPanel from "@/components/panel/ErrorPanel";
 import QueryProjectTable from "@/components/table/QueryProjectTable";
 import { Button } from "@/ui/button";
-import type { QueryProject, QueryProjectPage } from "@/types/query";
+import type { QueryProjectListItem, QueryProjectPage } from "@/types/query";
 
 export default function QueryPage() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ export default function QueryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<QueryProject | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<QueryProjectListItem | null>(null);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

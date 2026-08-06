@@ -127,14 +127,21 @@ export type FactorProject = {
   id: number;
   title: string;
   latest_version: number | null;
-  latest_metrics: FactorMetrics | null;
   draft: FactorWorkflowSummary | null;
   created_at: string;
   updated_at: string;
 };
 
+export type FactorProjectListItem = {
+  id: number;
+  title: string;
+  latest_version: number | null;
+  latest_metric: FactorMetricSummary | null;
+  updated_at: string;
+};
+
 export type FactorProjectPage = {
-  items: FactorProject[];
+  items: FactorProjectListItem[];
   page: number;
   page_size: number;
   total: number;
@@ -155,6 +162,8 @@ export type FactorVersion = {
   metrics: FactorMetrics;
   created_at: string;
 };
+
+export type FactorVersionListItem = Pick<FactorVersion, "id" | "version" | "remark" | "created_at">;
 
 export type JsonSchema = {
   $defs?: Record<string, JsonSchema>;

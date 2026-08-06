@@ -1,6 +1,6 @@
 import { client } from "@/assets/lib/request";
 import { isFactorQuery, type DslCatalog } from "@/types/factor";
-import { callbackNames, callbackParameters, type BacktestOutput, type BacktestOutputName, type BacktestParameters, type BacktestProject, type BacktestProjectPage, type BacktestSummary, type BacktestVersion, type BacktestWorkflowSubmitted, type CallbackName } from "@/types/backtest";
+import { callbackNames, callbackParameters, type BacktestOutput, type BacktestOutputName, type BacktestParameters, type BacktestProject, type BacktestProjectPage, type BacktestSummary, type BacktestVersion, type BacktestVersionListItem, type BacktestWorkflowSubmitted, type CallbackName } from "@/types/backtest";
 
 export function validCallback(callback: CallbackName, source: string) {
   const match = new RegExp(`\\bdef\\s+${callback}\\s*\\(([^)]*)\\)\\s*\\{`).exec(source);
@@ -159,7 +159,7 @@ export const backtestApi = {
   updateProject: (projectId: number, title: string) => client.patch<BacktestProject>(`/backtest/projects/${projectId}`, { title }),
   deleteProject: (projectId: number) => client.delete<{ id: number }>(`/backtest/projects/${projectId}`),
   run: (projectId: number, parameters: BacktestParameters) => client.post<BacktestWorkflowSubmitted>(`/backtest/projects/${projectId}/runs`, parameters, { timeout: 30000 }),
-  listVersions: (projectId: number) => client.get<BacktestVersion[]>(`/backtest/projects/${projectId}/versions`),
+  listVersions: (projectId: number) => client.get<BacktestVersionListItem[]>(`/backtest/projects/${projectId}/versions`),
   getVersion: (projectId: number, version: number) => client.get<BacktestVersion>(`/backtest/projects/${projectId}/versions/${version}`),
   saveVersion: (projectId: number, workflowInstanceId: number, remark: string, summary: BacktestSummary) => client.post<BacktestVersion>(`/backtest/projects/${projectId}/versions`, { workflow_instance_id: workflowInstanceId, remark, summary }),
   catalog: () => client.get<DslCatalog>("/backtest/dsl/catalog", { timeout: 30000 }),

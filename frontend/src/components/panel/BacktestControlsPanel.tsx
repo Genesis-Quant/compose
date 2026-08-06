@@ -4,7 +4,7 @@ import VersionNavigator from "@/components/bar/VersionNavigator";
 import WorkflowRunButton from "@/components/button/WorkflowRunButton";
 import BacktestEditor from "@/components/editor/BacktestEditor";
 import { Button } from "@/ui/button";
-import type { BacktestParameters, BacktestProject, BacktestSummary, BacktestVersion } from "@/types/backtest";
+import type { BacktestParameters, BacktestProject, BacktestSummary, BacktestVersionListItem } from "@/types/backtest";
 import type { DslCatalog } from "@/types/factor";
 
 type BacktestControlsPanelProps = {
@@ -22,7 +22,7 @@ type BacktestControlsPanelProps = {
   submitting: boolean;
   summary: BacktestSummary | null;
   workflowState: string;
-  versions: BacktestVersion[];
+  versions: BacktestVersionListItem[];
   onContinue: () => void;
   onCompare: () => void;
   onLogs: () => void;

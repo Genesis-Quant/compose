@@ -4,7 +4,7 @@ import VersionNavigator from "@/components/bar/VersionNavigator";
 import WorkflowRunButton from "@/components/button/WorkflowRunButton";
 import FactorAnalysisEditor from "@/components/editor/FactorAnalysisEditor";
 import { Button } from "@/ui/button";
-import type { DslCatalog, FactorAnalysisParameters, FactorMetrics, FactorProject, FactorVersion } from "@/types/factor";
+import type { DslCatalog, FactorAnalysisParameters, FactorMetrics, FactorProject, FactorVersionListItem } from "@/types/factor";
 
 type FactorAnalysisControlsPanelProps = {
   activeWorkflow: boolean;
@@ -21,7 +21,7 @@ type FactorAnalysisControlsPanelProps = {
   submitting: boolean;
   selectedVersion: number | null;
   workflowState: string;
-  versions: FactorVersion[];
+  versions: FactorVersionListItem[];
   onAnalyze: () => void;
   onCompare: () => void;
   onContinue: () => void;

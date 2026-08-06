@@ -1,5 +1,5 @@
 import { client } from "@/assets/lib/request";
-import { terminalStates, type WorkflowActionResponse, type WorkflowInformation, type WorkflowListFilters, type WorkflowListPage } from "@/types/workflow";
+import { terminalStates, type WorkflowActionResponse, type WorkflowInformation, type WorkflowListFilters, type WorkflowListPage, type WorkflowStatusInformation, type WorkflowTasks } from "@/types/workflow";
 
 export const workflowApplicationNames = { query: "Query", factor: "Factor", backtest: "Backtest", incremental: "Incremental" } as const;
 export type WorkflowResultPhase = "idle" | "running" | "failure" | "success";
@@ -33,6 +33,8 @@ export function resolveDurationSeconds(
 
 export const workflowsApi = {
   list: (filters: WorkflowListFilters) => client.get<WorkflowListPage>("/workflows", { params: filters }),
-  status: (workflowInstanceId: number) => client.get<WorkflowInformation>(`/workflows/${workflowInstanceId}`),
+  detail: (workflowInstanceId: number) => client.get<WorkflowInformation>(`/workflows/${workflowInstanceId}`),
+  status: (workflowInstanceId: number) => client.get<WorkflowStatusInformation>(`/workflows/${workflowInstanceId}/status`),
+  tasks: (workflowInstanceId: number) => client.get<WorkflowTasks>(`/workflows/${workflowInstanceId}/tasks`),
   stop: (workflowInstanceId: number) => client.post<WorkflowActionResponse>(`/workflows/${workflowInstanceId}/actions/stop`, null)
 };

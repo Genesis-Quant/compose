@@ -38,14 +38,21 @@ export type BacktestProject = {
   id: number;
   title: string;
   latest_version: number | null;
-  latest_summary: BacktestSummary | null;
   draft: BacktestWorkflowSummary | null;
   created_at: string;
   updated_at: string;
 };
 
+export type BacktestProjectListItem = {
+  id: number;
+  title: string;
+  latest_version: number | null;
+  latest_summary: BacktestSummary | null;
+  updated_at: string;
+};
+
 export type BacktestProjectPage = {
-  items: BacktestProject[];
+  items: BacktestProjectListItem[];
   page: number;
   page_size: number;
   total: number;
@@ -63,6 +70,8 @@ export type BacktestVersion = {
   summary: BacktestSummary;
   created_at: string;
 };
+
+export type BacktestVersionListItem = Pick<BacktestVersion, "id" | "version" | "remark" | "created_at">;
 
 export type BacktestOutputName = "trade_details" | "daily_positions" | "daily_portfolios" | "return_summary" | "daily_trading_statistics" | "engine_stat";
 export type BacktestOutput = { name: BacktestOutputName; filename: string; size: number; modified_at: string };

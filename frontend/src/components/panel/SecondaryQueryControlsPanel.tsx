@@ -5,13 +5,13 @@ import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
 import SqlEditor from "@/components/editor/SqlEditor";
 import { Button } from "@/ui/button";
 import { Switch } from "@/ui/switch";
-import type { QueryProject } from "@/types/query";
+import type { QueryProjectListItem } from "@/types/query";
 
 type SecondaryQueryControlsPanelProps = {
   loading: boolean;
   running: boolean;
   selectedIds: Set<number>;
-  sources: QueryProject[];
+  sources: QueryProjectListItem[];
   sql: string;
   onRefresh: () => void;
   onRun: () => void;

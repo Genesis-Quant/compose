@@ -10,7 +10,7 @@ import { PageHero } from "@/components/bar/PageHero";
 import { CreateProjectDialog, DeleteProjectDialog } from "@/components/modal/ProjectDialogs";
 import ErrorPanel from "@/components/panel/ErrorPanel";
 import BacktestProjectTable from "@/components/table/BacktestProjectTable";
-import type { BacktestProject, BacktestProjectPage } from "@/types/backtest";
+import type { BacktestProjectListItem, BacktestProjectPage } from "@/types/backtest";
 
 export default function BacktestPage() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ export default function BacktestPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<BacktestProject | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BacktestProjectListItem | null>(null);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

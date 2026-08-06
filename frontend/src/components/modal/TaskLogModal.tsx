@@ -13,7 +13,7 @@ import SchedulerStateBadge from "@/components/badge/SchedulerStateBadge";
 import TaskLogViewer from "@/components/log/TaskLogViewer";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/dialog";
-import { terminalStates, type WorkflowInformation } from "@/types/workflow";
+import { terminalStates, type WorkflowTasks } from "@/types/workflow";
 
 const PAGE_SIZE = 500;
 
@@ -25,7 +25,7 @@ type TaskLogModalProps = {
 };
 
 export default function TaskLogModal({ onOpenChange, open, taskInstanceId, workflowInstanceId }: TaskLogModalProps) {
-  const [workflow, setWorkflow] = useState<WorkflowInformation | null>(null);
+  const [workflow, setWorkflow] = useState<WorkflowTasks | null>(null);
   const [message, setMessage] = useState("");
   const [nextLine, setNextLine] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -54,13 +54,13 @@ export default function TaskLogModal({ onOpenChange, open, taskInstanceId, workf
   const loadWorkflow = useCallback(async () => {
     if (!workflowInstanceId) return null;
     const selection = `${workflowInstanceId}:${taskInstanceId}`;
-    const result = await workflowsApi.status(workflowInstanceId);
+    const result = await workflowsApi.tasks(workflowInstanceId);
     if (selectionRef.current !== selection) return null;
     setWorkflow(result);
     return result;
   }, [taskInstanceId, workflowInstanceId]);
 
-  const loadLogs = useCallback(async (currentWorkflow: WorkflowInformation, reset: boolean, background = false) => {
+  const loadLogs = useCallback(async (currentWorkflow: WorkflowTasks, reset: boolean, background = false) => {
     if (!workflowInstanceId) return false;
     const currentTask = selectedWorkflowTask(currentWorkflow, taskInstanceId);
     const currentTaskInstanceId = currentTask?.task_instance_id;
@@ -148,7 +148,7 @@ export default function TaskLogModal({ onOpenChange, open, taskInstanceId, workf
 function TaskMeta({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) { return <div className="min-w-0 border-r border-t px-4 py-3 first:border-t-0 sm:border-t-0"><div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">{icon}{label}</div><div className="mt-1.5 truncate font-mono text-xs font-medium">{value}</div></div>; }
 function emptyLogMessage(error: string, creating: boolean) { return error ? "" : creating ? "创建中" : "暂无日志"; }
 
-function selectedWorkflowTask(workflow: WorkflowInformation | null, taskInstanceId: number | null) {
+function selectedWorkflowTask(workflow: WorkflowTasks | null, taskInstanceId: number | null) {
   if (!workflow) return undefined;
   if (taskInstanceId !== null) return workflow.tasks.find((item) => item.task_instance_id === taskInstanceId);
   return workflow.tasks.find((item) => item.task_instance_id !== null) ?? workflow.tasks[0];
@@ -158,11 +158,11 @@ function taskLogCreating(host: string | null | undefined, taskInstanceId: number
   return !taskInstanceId || !host;
 }
 
-function taskLogUnavailable(workflow: WorkflowInformation | null, host: string | null | undefined, taskInstanceId: number | null) {
+function taskLogUnavailable(workflow: WorkflowTasks | null, host: string | null | undefined, taskInstanceId: number | null) {
   return Boolean(workflow && terminalStates.has(workflow.state) && taskLogCreating(host, taskInstanceId));
 }
 
-function taskLogContent(loading: boolean, workflow: WorkflowInformation | null, message: string, error: string, creating: boolean, unavailable: boolean) {
+function taskLogContent(loading: boolean, workflow: WorkflowTasks | null, message: string, error: string, creating: boolean, unavailable: boolean) {
   if (loading && !workflow) return <div className="grid min-h-72 place-items-center"><IconLoaderCircle className="animate-spin text-muted-foreground" width={20} height={20} /></div>;
   const unavailableMessage = unavailable ? workflow?.error || "工作流已结束，未创建可读取日志的 Task" : "";
   return <TaskLogViewer message={message} emptyMessage={unavailableMessage || emptyLogMessage(error, creating)} />;
