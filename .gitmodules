@@ -4,3 +4,6 @@
 [submodule "backend"]
 	path = backend
 	url = https://github.com/Genesis-Quant/backend.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/Genesis-Quant/frontend.git
