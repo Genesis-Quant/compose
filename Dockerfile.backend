@@ -71,6 +71,7 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 
 COPY backend/core ./core
+COPY backend/docs ./docs
 COPY backend/config.py ./config.py
 COPY backend/main.py ./main.py
 COPY backend/alembic.ini ./alembic.ini
